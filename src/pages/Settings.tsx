@@ -362,7 +362,7 @@ export default function Settings() {
     try {
       await db.transaction(
         "rw",
-        [db.organizations, db.categories, db.transactions, db.allocations, db.settings, db.auditLog],
+        [db.organizations, db.categories, db.transactions, db.allocations, db.settings, db.auditLog, db.templates],
         async () => {
           // Log the wipe BEFORE we clear, then clear (auditLog is also cleared as part of WIPE).
           await logAudit("setting", "delete", "all", "Wiped all data");
@@ -373,6 +373,7 @@ export default function Settings() {
             db.organizations.clear(),
             db.settings.clear(),
             db.auditLog.clear(),
+            db.templates.clear(),
           ]);
         },
       );

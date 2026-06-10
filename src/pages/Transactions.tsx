@@ -9,6 +9,7 @@ import { useSetting } from "../hooks/useSetting";
 import { useToast } from "../components/Toast";
 import { useConfirm } from "../components/Confirm";
 import { restoreTransaction, softDeleteTransaction } from "../utils/trash";
+import CsvImportModal from "../components/CsvImportModal";
 
 export default function Transactions() {
   const currency = useSetting<string>("currency", "PHP");
@@ -33,6 +34,7 @@ export default function Transactions() {
   const [adding, setAdding] = useState(false);
   const [addDirty, setAddDirty] = useState(false);
   const [editDirty, setEditDirty] = useState(false);
+  const [csvOpen, setCsvOpen] = useState(false);
 
   const filtered = useMemo(() => {
     let list = [...(txns ?? [])];
@@ -135,6 +137,9 @@ export default function Transactions() {
           <p className="text-sm text-slate-500">All recorded income and expenses.</p>
         </div>
         <div className="flex gap-2">
+          <button className="btn-secondary" onClick={() => setCsvOpen(true)}>
+            Import CSV
+          </button>
           <button className="btn-secondary" onClick={exportFiltered}>
             Export CSV
           </button>
@@ -345,6 +350,14 @@ export default function Transactions() {
           />
         )}
       </Modal>
+
+      <CsvImportModal
+        open={csvOpen}
+        onClose={() => setCsvOpen(false)}
+        onImported={() => {
+          /* live query refreshes automatically */
+        }}
+      />
     </div>
   );
 }

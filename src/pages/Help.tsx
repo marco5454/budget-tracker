@@ -121,6 +121,70 @@ export default function Help() {
             <strong>Recent Transactions</strong> and{" "}
             <strong>Per-Organization Detail</strong> table.
           </li>
+          <li>
+            <strong>Needs attention</strong> widget surfaces over-budget
+            organizations, transactions stuck in <em>pending</em>/<em>approved</em> for
+            more than 14 days, expenses ≥ ₱1,000 with no attached receipt, and
+            unusually large expenses (top 5% year-to-date).
+          </li>
+          <li>
+            <strong>+ Allotment</strong> button records the quarterly stake
+            allotment as an income transaction. The amount, organization and
+            category from the last allotment are pre-filled.
+          </li>
+          <li>
+            <strong>Print / PDF</strong> button opens the browser's print
+            dialog. Choose <em>Save as PDF</em> as the destination to produce a
+            clean, printable statement (nav and toolbars are hidden).
+          </li>
+        </ul>
+      </Section>
+
+      <Section title="Templates">
+        <p>
+          For recurring transactions (monthly utility, weekly supplies, etc.)
+          you can save a template that pre-fills everything except the date and
+          amount.
+        </p>
+        <ul className="list-disc pl-6 space-y-1">
+          <li>
+            From <strong>Add Transaction</strong>, fill the form, then click{" "}
+            <em>Save as template</em> at the bottom.
+          </li>
+          <li>
+            Next time, pick a template from the <em>Use a template</em> bar at
+            the top of the Add Transaction form.
+          </li>
+          <li>
+            Manage templates from the <strong>Templates</strong> page (rename,
+            duplicate, edit, delete).
+          </li>
+        </ul>
+      </Section>
+
+      <Section title="CSV Import">
+        <p>
+          On the <strong>Transactions</strong> page, click <em>Import CSV</em>{" "}
+          to bulk-add transactions from a spreadsheet (Excel, Google Sheets).
+        </p>
+        <ul className="list-disc pl-6 space-y-1">
+          <li>
+            Click <em>Download CSV template</em> in the import dialog for a
+            ready-to-fill file with the correct headers.
+          </li>
+          <li>
+            Required columns: <code>date, type, amount, organization</code>.
+            Optional: <code>category, payee, description, reference, status, notes</code>.
+          </li>
+          <li>
+            Organization and category are matched by name (case-insensitive)
+            against the entries you have on this device, so make sure they
+            exist before importing.
+          </li>
+          <li>
+            A preview is shown before commit; invalid rows are listed with
+            their reasons and skipped.
+          </li>
         </ul>
       </Section>
 

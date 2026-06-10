@@ -26,6 +26,9 @@ import {
 } from "../utils/format";
 import Modal from "../components/Modal";
 import TransactionForm from "../components/TransactionForm";
+import AllotmentQuickAdd from "../components/AllotmentQuickAdd";
+import AttentionWidget from "../components/AttentionWidget";
+import PrintHeader from "../components/PrintHeader";
 import { useSetting } from "../hooks/useSetting";
 
 const COLORS = [
@@ -50,6 +53,7 @@ export default function Dashboard() {
   );
   const [showAdd, setShowAdd] = useState(false);
   const [addDirty, setAddDirty] = useState(false);
+  const [showAllotment, setShowAllotment] = useState(false);
 
   const txns = useLiveQuery(
     () => db.transactions.filter((t) => !t.deletedAt).toArray(),
@@ -180,7 +184,11 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <PrintHeader
+        title="Budget Dashboard"
+        subtitle={`${year} · ${quarter === 0 ? "Annual" : `Q${quarter}`}`}
+      />
+      <div className="flex flex-wrap items-end justify-between gap-3 no-print">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
           <p className="text-sm text-slate-500">
@@ -216,14 +224,20 @@ export default function Dashboard() {
               <option value={4}>Q4 (Oct–Dec)</option>
             </select>
           </div>
+          <button className="btn-secondary" onClick={() => setShowAllotment(true)}>
+            + Allotment
+          </button>
           <button className="btn-primary" onClick={() => setShowAdd(true)}>
             + Add Transaction
+          </button>
+          <button className="btn-secondary" onClick={() => window.print()}>
+            Print / PDF
           </button>
         </div>
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 print-keep-together">
         <KpiCard label="Total Budget" value={formatCurrency(totalBudget, currency)} sub="Allocations + Income" />
         <KpiCard label="Spent" value={formatCurrency(totalSpent, currency)} sub={`${percentUsed.toFixed(1)}% of budget`} />
         <KpiCard
@@ -234,6 +248,8 @@ export default function Dashboard() {
         />
         <KpiCard label="Income" value={formatCurrency(totalIncome, currency)} sub="Allotments / transfers" />
       </div>
+
+      <AttentionWidget year={year} />
 
       {alerts.length > 0 && (
         <div className="card p-4 border-l-4 border-amber-500">
@@ -415,6 +431,11 @@ export default function Dashboard() {
           onDirtyChange={setAddDirty}
         />
       </Modal>
+
+      <AllotmentQuickAdd
+        open={showAllotment}
+        onClose={() => setShowAllotment(false)}
+      />
     </div>
   );
 }

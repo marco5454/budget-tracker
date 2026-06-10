@@ -8,15 +8,18 @@ An offline-first web app to help LDS ward bishopric and clerks track quarterly/a
 
 ## Features
 
-- **Dashboard** with KPIs, budget-vs-spent per organization, category breakdown, monthly trend, alerts, and recent transactions.
-- **Transactions** page with search/filter (year, quarter, organization, type, status), CSV export, edit/delete, and optional receipt attachment.
+- **Dashboard** with KPIs, budget-vs-spent per organization, category breakdown, monthly trend, alerts, recent transactions, and a *Needs attention* widget (over-budget orgs, stuck workflow, missing receipts, unusually large expenses).
+- **Transactions** page with search/filter (year, quarter, organization, type, status), CSV export, **CSV import** with preview, edit/delete, and optional receipt attachment.
+- **Templates** for recurring transactions — pre-fill everything except date and amount; save from the Add Transaction form, manage on the Templates page.
+- **Quarterly allotment quick-add** on the Dashboard — one click to record the stake allotment with last-used amount/org/category pre-filled.
 - **Budget** page to set annual or quarterly allocations per organization, with helper to split annual into quarters.
 - **Reports** page with annual breakdown by organization (per-quarter spent), category totals, and monthly summary — each exportable to CSV.
-- **Audit Log** of every create/update/delete on transactions, allocations, organizations, categories, and key settings — filterable by entity/action/actor and exportable to CSV.
+- **Print / Save as PDF** on Dashboard and Reports — produces a clean, official-looking document via the browser print dialog.
+- **Audit Log** of every create/update/delete on transactions, allocations, organizations, categories, templates, and key settings — filterable by entity/action/actor and exportable to CSV.
 - **Trash** with 30-day auto-purge for deleted transactions and allocations, plus an 8-second Undo on delete.
 - **Multi-tab safety** — when another tab edits data, this tab refreshes automatically and shows a banner.
 - **Settings** to manage organizations, categories, ward name, currency, active actor, security, and backups.
-- **Backup & Restore** as JSON files (manual download/import; merge or replace) — now includes the audit log.
+- **Backup & Restore** as JSON files (manual download/import; merge or replace) — includes the audit log and templates.
 - **Income tracking** for quarterly allotments, inter-ward transfers, refunds.
 - **PWA** — installable, works fully offline once loaded.
 - **Default currency**: PHP (₱). Configurable.
@@ -136,6 +139,32 @@ In **Settings → Auto-Backup to Folder** you can pick a folder once. The app wi
 - **Read-back verification:** after writing, the app reads the file back and recomputes its SHA-256. A mismatch is reported as an error.
 - **Retention:** by default the last 30 backup files are kept; older ones are pruned automatically. Configurable 1–180 in Settings.
 - Best practice: choose a folder that is itself synced to a cloud drive (OneDrive / iCloud / Google Drive / Dropbox / Syncthing). That way a fresh backup is automatically replicated off-device.
+
+## Templates
+
+For recurring transactions you can save a **template** that pre-fills everything except date and amount.
+
+- From the **Add Transaction** modal, fill the form and click **Save as template**, give it a name.
+- Next time, pick the template from the *Use a template* selector at the top of the Add Transaction form. Date and amount stay blank for you to fill in.
+- The dedicated **Templates** page lets you rename, edit, duplicate or delete templates.
+
+## CSV Import
+
+On the **Transactions** page, click **Import CSV** to bulk-add transactions.
+
+- Click **Download CSV template** in the dialog for a ready-to-fill spreadsheet with the correct headers.
+- Required columns: `date, type, amount, organization`.
+- Optional columns: `category, payee, description, reference, status, notes`.
+- Organization and category are matched **by name (case-insensitive)** against the entries on this device — make sure they exist before importing.
+- A preview is shown before commit. Invalid rows are listed with reasons and skipped (valid rows still import).
+
+## Quarterly Allotment Quick-Add
+
+On the **Dashboard**, click **+ Allotment** to record the quarterly stake allotment as an income transaction. The amount, organization and category from the last allotment are pre-filled, so subsequent quarters take a single click + confirm.
+
+## Print / Save as PDF
+
+The **Dashboard** and **Reports** pages have a **Print / PDF** button. It opens the browser's print dialog with a clean stylesheet (navigation, toolbars and form chrome are hidden, charts and tables stretch to full width). Choose **Save as PDF** as the destination to produce a shareable file for the bishopric/auditor.
 
 ## Active Actor
 

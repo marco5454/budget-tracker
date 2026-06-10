@@ -15,6 +15,7 @@ import {
 import { markDataChanged } from "../utils/backup";
 import { logAudit } from "../utils/audit";
 import { broadcastDataChanged } from "../utils/broadcast";
+import { addTemplate } from "../utils/templates";
 import { useToast } from "./Toast";
 
 interface Props {
@@ -39,6 +40,7 @@ export default function TransactionForm({
 }: Props) {
   const allOrgs = useLiveQuery(() => db.organizations.orderBy("order").toArray(), []);
   const cats = useLiveQuery(() => db.categories.toArray(), []);
+  const templates = useLiveQuery(() => db.templates.orderBy("order").toArray(), []);
   const toast = useToast();
 
   const [date, setDate] = useState(initial?.date ?? todayIso());
@@ -96,6 +98,58 @@ export default function TransactionForm({
     reader.onload = () => setReceiptDataUrl(reader.result as string);
     reader.onerror = () => toast.error("Failed to read the receipt file.");
     reader.readAsDataURL(file);
+  };
+
+  const applyTemplate = (id: number) => {
+    const t = templates?.find((x) => x.id === id);
+    if (!t) return;
+    markDirty();
+    setType(t.type);
+    setOrganizationId(t.organizationId);
+    setCategoryId(t.categoryId);
+    setPayee(t.payee ?? "");
+    setDescription(t.description ?? "");
+    setReference(t.reference ?? "");
+    setStatus(t.status);
+    setNotes(t.notes ?? "");
+    toast.info(`Template '${t.name}' applied. Enter date and amount.`);
+  };
+
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [savingTemplate, setSavingTemplate] = useState(false);
+
+  const saveAsTemplate = async () => {
+    const name = templateName.trim();
+    if (!name) {
+      toast.error("Give the template a short name.");
+      return;
+    }
+    if (!organizationId) {
+      toast.error("Pick an organization before saving as template.");
+      return;
+    }
+    setSavingTemplate(true);
+    try {
+      await addTemplate({
+        name,
+        type,
+        organizationId: Number(organizationId),
+        categoryId: categoryId === null || categoryId === undefined ? null : Number(categoryId),
+        payee: payee.trim() || undefined,
+        description: description.trim() || undefined,
+        reference: reference.trim() || undefined,
+        status,
+        notes: notes.trim() || undefined,
+      });
+      toast.success(`Template '${name}' saved.`);
+      setTemplateName("");
+      setShowSaveTemplate(false);
+    } catch (err) {
+      toast.error(`Failed: ${(err as Error).message}`);
+    } finally {
+      setSavingTemplate(false);
+    }
   };
 
   const validate = (): Record<string, string> => {
@@ -186,6 +240,32 @@ export default function TransactionForm({
 
   return (
     <form onSubmit={onSubmit} className="space-y-4" noValidate>
+      {!initial && templates && templates.length > 0 && (
+        <div className="rounded border border-slate-200 bg-slate-50 px-3 py-2">
+          <label htmlFor="tx-template" className="text-xs font-medium text-slate-600">
+            Use a template
+          </label>
+          <div className="flex gap-2 mt-1">
+            <select
+              id="tx-template"
+              className="input flex-1"
+              defaultValue=""
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v) applyTemplate(Number(v));
+                e.target.value = "";
+              }}
+            >
+              <option value="">— Apply a saved template… —</option>
+              {templates.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="label" htmlFor="tx-date">Date</label>
@@ -395,17 +475,59 @@ export default function TransactionForm({
           </div>
         )}
       </div>
-      <div className="flex justify-end gap-2 pt-2 border-t">
-        <button type="button" className="btn-secondary" onClick={onCancel}>
-          Cancel
-        </button>
-        <button type="submit" className="btn-primary" disabled={submitting}>
-          {submitting
-            ? "Saving…"
-            : initial
-              ? "Save changes"
-              : "Add transaction"}
-        </button>
+      <div className="flex flex-wrap justify-between items-center gap-2 pt-2 border-t">
+        <div className="flex items-center gap-2 flex-wrap">
+          {!showSaveTemplate ? (
+            <button
+              type="button"
+              className="text-sm text-brand-700 underline"
+              onClick={() => setShowSaveTemplate(true)}
+            >
+              Save as template
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <input
+                aria-label="Template name"
+                placeholder="Template name (e.g. RS Sunday meal)"
+                className="input h-9 text-sm"
+                maxLength={80}
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+              />
+              <button
+                type="button"
+                className="btn-secondary text-sm"
+                disabled={savingTemplate}
+                onClick={saveAsTemplate}
+              >
+                {savingTemplate ? "Saving…" : "Save"}
+              </button>
+              <button
+                type="button"
+                className="text-xs text-slate-500 underline"
+                onClick={() => {
+                  setShowSaveTemplate(false);
+                  setTemplateName("");
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button type="button" className="btn-secondary" onClick={onCancel}>
+            Cancel
+          </button>
+          <button type="submit" className="btn-primary" disabled={submitting}>
+            {submitting
+              ? "Saving…"
+              : initial
+                ? "Save changes"
+                : "Add transaction"}
+          </button>
+        </div>
       </div>
     </form>
   );

@@ -29,6 +29,11 @@ export interface BackupFile {
      * backups exported before schema v2 don't include this field.
      */
     auditLog?: unknown[];
+    /**
+     * Transaction templates. Optional for backwards-compatibility — older
+     * backups exported before schema v3 don't include this field.
+     */
+    templates?: unknown[];
   };
   integrity?: {
     algorithm: "SHA-256";
@@ -44,7 +49,7 @@ function canonicalDataString(data: BackupFile["data"]): string {
 }
 
 export async function exportBackup(): Promise<BackupFile> {
-  const [organizations, categories, transactions, allocations, settings, auditLog] =
+  const [organizations, categories, transactions, allocations, settings, auditLog, templates] =
     await Promise.all([
       db.organizations.toArray(),
       db.categories.toArray(),
@@ -52,8 +57,17 @@ export async function exportBackup(): Promise<BackupFile> {
       db.allocations.toArray(),
       db.settings.toArray(),
       db.auditLog.toArray(),
+      db.templates.toArray(),
     ]);
-  const data = { organizations, categories, transactions, allocations, settings, auditLog };
+  const data = {
+    organizations,
+    categories,
+    transactions,
+    allocations,
+    settings,
+    auditLog,
+    templates,
+  };
   const sha256 = await sha256Hex(canonicalDataString(data));
   return {
     appName: "Ward Budget Tracker",
@@ -250,6 +264,21 @@ async function validateBackup(parsed: unknown): Promise<ValidationResult> {
     }
     return true;
   });
+  // templates is optional.
+  const templatesRaw = Array.isArray(d.templates) ? (d.templates as unknown[]) : [];
+  const templates = templatesRaw.filter((row, i) => {
+    const r = row as Record<string, unknown>;
+    if (
+      typeof r?.name !== "string" ||
+      (r?.type !== "expense" && r?.type !== "income") ||
+      typeof r?.organizationId !== "number" ||
+      typeof r?.status !== "string"
+    ) {
+      warnings.push({ table: "templates", index: i, reason: "missing/invalid required fields" });
+      return false;
+    }
+    return true;
+  });
 
   return {
     ok: true,
@@ -262,6 +291,7 @@ async function validateBackup(parsed: unknown): Promise<ValidationResult> {
       allocations: allocs,
       settings,
       auditLog,
+      templates,
     },
     integrityChecked,
     integrityOk,
@@ -276,6 +306,7 @@ export interface ImportResult {
     allocations: number;
     settings: number;
     auditLog: number;
+    templates: number;
   };
   warnings: ValidationIssue[];
   encrypted: boolean;
@@ -326,12 +357,12 @@ export async function importBackup(
   if (!v.ok || !v.data) {
     throw new Error(v.errors.join(" "));
   }
-  const { organizations, categories, transactions, allocations, settings, auditLog } =
+  const { organizations, categories, transactions, allocations, settings, auditLog, templates } =
     v.data;
 
   await db.transaction(
     "rw",
-    [db.organizations, db.categories, db.transactions, db.allocations, db.settings, db.auditLog],
+    [db.organizations, db.categories, db.transactions, db.allocations, db.settings, db.auditLog, db.templates],
     async () => {
       if (mode === "replace") {
         await Promise.all([
@@ -341,6 +372,7 @@ export async function importBackup(
           db.allocations.clear(),
           db.settings.clear(),
           db.auditLog.clear(),
+          db.templates.clear(),
         ]);
       }
       if (organizations.length) await db.organizations.bulkPut(organizations as never);
@@ -349,6 +381,7 @@ export async function importBackup(
       if (allocations.length) await db.allocations.bulkPut(allocations as never);
       if (settings.length) await db.settings.bulkPut(settings as never);
       if (auditLog && auditLog.length) await db.auditLog.bulkPut(auditLog as never);
+      if (templates && templates.length) await db.templates.bulkPut(templates as never);
     },
   );
   await markDataChanged();
@@ -360,6 +393,7 @@ export async function importBackup(
       allocations: allocations.length,
       settings: settings.length,
       auditLog: auditLog?.length ?? 0,
+      templates: templates?.length ?? 0,
     },
     warnings: v.warnings,
     encrypted,

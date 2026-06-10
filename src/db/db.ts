@@ -71,7 +71,8 @@ export type AuditEntity =
   | "allocation"
   | "organization"
   | "category"
-  | "setting";
+  | "setting"
+  | "template";
 
 export type AuditAction = "create" | "update" | "delete" | "restore" | "purge";
 
@@ -91,6 +92,29 @@ export interface AuditLogEntry {
   details?: Record<string, unknown>;
 }
 
+/**
+ * Saved transaction template. Stores most fields of a Transaction except
+ * `date` and `amount` (which the user enters at apply time). Used to
+ * speed up repetitive entries (e.g. "RS Sunday meal", "YM camp fee").
+ */
+export interface TransactionTemplate {
+  id?: number;
+  /** Short human label shown in the picker */
+  name: string;
+  type: TransactionType;
+  organizationId: number;
+  categoryId: number | null;
+  payee?: string;
+  description?: string;
+  reference?: string;
+  status: TransactionStatus;
+  notes?: string;
+  /** Sort order in the picker */
+  order: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 class WardBudgetDB extends Dexie {
   organizations!: Table<Organization, number>;
   categories!: Table<Category, number>;
@@ -98,6 +122,7 @@ class WardBudgetDB extends Dexie {
   allocations!: Table<Allocation, number>;
   settings!: Table<Setting, string>;
   auditLog!: Table<AuditLogEntry, number>;
+  templates!: Table<TransactionTemplate, number>;
 
   constructor() {
     super("WardBudgetDB");
@@ -145,10 +170,22 @@ class WardBudgetDB extends Dexie {
             }
           });
       });
+    // v3 — adds the templates table.
+    this.version(3).stores({
+      organizations: "++id, name, order, active",
+      categories: "++id, name, organizationId, active",
+      transactions:
+        "++id, date, type, organizationId, categoryId, status, createdAt, deletedAt",
+      allocations:
+        "++id, [year+quarter+organizationId], year, quarter, organizationId, deletedAt",
+      settings: "key",
+      auditLog: "++id, at, entity, action, [entity+action], actor",
+      templates: "++id, name, order, organizationId",
+    });
   }
 }
 
 export const db = new WardBudgetDB();
 
 /** Current schema version that the app code targets. */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;

@@ -41,3 +41,75 @@
     @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
   }
 }
+
+/* Print styles — used for "Save as PDF" via the browser print dialog. */
+@media print {
+  /* Hide chrome */
+  header,
+  footer,
+  nav,
+  .no-print {
+    display: none !important;
+  }
+  /* Reveal print-only blocks (e.g. printable headers) */
+  .print-only {
+    display: block !important;
+  }
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 11pt;
+  }
+  main,
+  main > div {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .card {
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+    page-break-inside: avoid;
+  }
+  table {
+    page-break-inside: auto;
+    width: 100% !important;
+    font-size: 10pt;
+  }
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+  thead {
+    display: table-header-group;
+  }
+  /* Recharts SVGs sometimes render small; force full width */
+  .recharts-wrapper {
+    width: 100% !important;
+  }
+  /* Avoid black-on-black; ensure links stay readable */
+  a {
+    color: #000 !important;
+    text-decoration: none !important;
+  }
+  /* Avoid breaks inside KPI grids */
+  .print-keep-together {
+    page-break-inside: avoid;
+  }
+  /* Hide form controls that are useless on paper */
+  select,
+  input,
+  textarea,
+  button {
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+  @page {
+    margin: 1.5cm;
+  }
+}
+
+/* Hidden by default, shown only on print */
+.print-only {
+  display: none;
+}

@@ -10,6 +10,7 @@ import {
   yearFromDate,
 } from "../utils/format";
 import { useSetting } from "../hooks/useSetting";
+import PrintHeader from "../components/PrintHeader";
 
 export default function Reports() {
   const currency = useSetting<string>("currency", "PHP");
@@ -165,23 +166,29 @@ export default function Reports() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <PrintHeader title="Annual Budget Report" subtitle={`Calendar year ${year}`} />
+      <div className="flex flex-wrap items-end justify-between gap-3 no-print">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Reports</h1>
           <p className="text-sm text-slate-500">
-            Annual and quarterly breakdown. All reports can be exported to CSV
-            and opened in Excel or Google Sheets.
+            Annual and quarterly breakdown. Use <em>Print / Save as PDF</em> for an
+            official-looking statement, or export individual sections to CSV.
           </p>
         </div>
-        <div>
-          <label className="label">Year</label>
-          <select className="input" value={year} onChange={(e) => setYear(Number(e.target.value))}>
-            {years.map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
+        <div className="flex items-end gap-2">
+          <div>
+            <label className="label">Year</label>
+            <select className="input" value={year} onChange={(e) => setYear(Number(e.target.value))}>
+              {years.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button className="btn-secondary" onClick={() => window.print()}>
+            Print / Save as PDF
+          </button>
         </div>
       </div>
 
@@ -198,7 +205,7 @@ export default function Reports() {
       <div className="card p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold text-slate-800">Annual by Organization ({year})</h3>
-          <button className="btn-secondary" onClick={exportAnnual}>
+          <button className="btn-secondary no-print" onClick={exportAnnual}>
             Export CSV
           </button>
         </div>
@@ -244,7 +251,7 @@ export default function Reports() {
         <div className="card p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-slate-800">Spending by Category</h3>
-            <button className="btn-secondary" onClick={exportCategories}>
+            <button className="btn-secondary no-print" onClick={exportCategories}>
               Export CSV
             </button>
           </div>
@@ -273,7 +280,7 @@ export default function Reports() {
         <div className="card p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-slate-800">Monthly Summary</h3>
-            <button className="btn-secondary" onClick={exportMonthly}>
+            <button className="btn-secondary no-print" onClick={exportMonthly}>
               Export CSV
             </button>
           </div>

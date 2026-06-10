@@ -8,6 +8,7 @@ import Settings from "./pages/Settings";
 import Help from "./pages/Help";
 import Trash from "./pages/Trash";
 import AuditLog from "./pages/AuditLog";
+import Templates from "./pages/Templates";
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/transactions" element={<Transactions />} />
         <Route path="/budget" element={<Budget />} />
+        <Route path="/templates" element={<Templates />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/audit" element={<AuditLog />} />
         <Route path="/trash" element={<Trash />} />
