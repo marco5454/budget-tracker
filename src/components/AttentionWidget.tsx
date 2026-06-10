@@ -39,6 +39,11 @@ export default function AttentionWidget({ year }: { year: number }) {
     () => db.allocations.filter((a) => !a.deletedAt).toArray(),
     [],
   );
+  const cats = useLiveQuery(() => db.categories.toArray(), []);
+  const limits = useLiveQuery(
+    () => db.categoryLimits.where("year").equals(year).toArray(),
+    [year],
+  );
 
   const issues = useMemo<Issue[]>(() => {
     if (!txns || !orgs || !allocations) return [];
@@ -119,11 +124,49 @@ export default function AttentionWidget({ year }: { year: number }) {
       }
     }
 
+    // 5) Category-limit usage (HIGH if over, MEDIUM if ≥80%)
+    if (limits && limits.length > 0) {
+      for (const lim of limits) {
+        const spent = yearExpenses
+          .filter(
+            (t) =>
+              t.organizationId === lim.organizationId &&
+              (t.categoryId ?? null) === (lim.categoryId ?? null),
+          )
+          .reduce((s, t) => s + t.amount, 0);
+        if (lim.amount <= 0) continue;
+        const pct = (spent / lim.amount) * 100;
+        const orgName =
+          orgs.find((o) => o.id === lim.organizationId)?.name ??
+          `Org #${lim.organizationId}`;
+        const catName =
+          (cats ?? []).find((c) => c.id === lim.categoryId)?.name ??
+          `Cat #${lim.categoryId}`;
+        if (spent > lim.amount) {
+          out.push({
+            key: `catlimit-over-${lim.id}`,
+            severity: "high",
+            title: `${orgName} · ${catName} over category limit`,
+            detail: `Spent ${formatCurrency(spent, currency)} of ${formatCurrency(lim.amount, currency)} cap (${formatCurrency(spent - lim.amount, currency)} over).`,
+            href: "/settings",
+          });
+        } else if (pct >= 80) {
+          out.push({
+            key: `catlimit-near-${lim.id}`,
+            severity: "medium",
+            title: `${orgName} · ${catName} near category limit`,
+            detail: `Spent ${formatCurrency(spent, currency)} of ${formatCurrency(lim.amount, currency)} cap (${pct.toFixed(0)}%).`,
+            href: "/settings",
+          });
+        }
+      }
+    }
+
     // Stable order by severity then key
     const rank: Record<Issue["severity"], number> = { high: 0, medium: 1, low: 2 };
     out.sort((a, b) => rank[a.severity] - rank[b.severity] || a.key.localeCompare(b.key));
     return out;
-  }, [txns, orgs, allocations, year, currency]);
+  }, [txns, orgs, allocations, cats, limits, year, currency]);
 
   if (issues.length === 0) {
     return (

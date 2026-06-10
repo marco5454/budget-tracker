@@ -34,6 +34,12 @@ export interface BackupFile {
      * backups exported before schema v3 don't include this field.
      */
     templates?: unknown[];
+    /**
+     * Per-(year, org, category) annual category limits. Optional for
+     * backwards-compatibility — older backups exported before schema v4
+     * don't include this field.
+     */
+    categoryLimits?: unknown[];
   };
   integrity?: {
     algorithm: "SHA-256";
@@ -49,16 +55,25 @@ function canonicalDataString(data: BackupFile["data"]): string {
 }
 
 export async function exportBackup(): Promise<BackupFile> {
-  const [organizations, categories, transactions, allocations, settings, auditLog, templates] =
-    await Promise.all([
-      db.organizations.toArray(),
-      db.categories.toArray(),
-      db.transactions.toArray(),
-      db.allocations.toArray(),
-      db.settings.toArray(),
-      db.auditLog.toArray(),
-      db.templates.toArray(),
-    ]);
+  const [
+    organizations,
+    categories,
+    transactions,
+    allocations,
+    settings,
+    auditLog,
+    templates,
+    categoryLimits,
+  ] = await Promise.all([
+    db.organizations.toArray(),
+    db.categories.toArray(),
+    db.transactions.toArray(),
+    db.allocations.toArray(),
+    db.settings.toArray(),
+    db.auditLog.toArray(),
+    db.templates.toArray(),
+    db.categoryLimits.toArray(),
+  ]);
   const data = {
     organizations,
     categories,
@@ -67,6 +82,7 @@ export async function exportBackup(): Promise<BackupFile> {
     settings,
     auditLog,
     templates,
+    categoryLimits,
   };
   const sha256 = await sha256Hex(canonicalDataString(data));
   return {
@@ -279,6 +295,27 @@ async function validateBackup(parsed: unknown): Promise<ValidationResult> {
     }
     return true;
   });
+  // categoryLimits is optional.
+  const categoryLimitsRaw = Array.isArray(d.categoryLimits)
+    ? (d.categoryLimits as unknown[])
+    : [];
+  const categoryLimits = categoryLimitsRaw.filter((row, i) => {
+    const r = row as Record<string, unknown>;
+    if (
+      typeof r?.year !== "number" ||
+      typeof r?.organizationId !== "number" ||
+      typeof r?.categoryId !== "number" ||
+      typeof r?.amount !== "number"
+    ) {
+      warnings.push({
+        table: "categoryLimits",
+        index: i,
+        reason: "missing/invalid required fields",
+      });
+      return false;
+    }
+    return true;
+  });
 
   return {
     ok: true,
@@ -292,6 +329,7 @@ async function validateBackup(parsed: unknown): Promise<ValidationResult> {
       settings,
       auditLog,
       templates,
+      categoryLimits,
     },
     integrityChecked,
     integrityOk,
@@ -307,6 +345,7 @@ export interface ImportResult {
     settings: number;
     auditLog: number;
     templates: number;
+    categoryLimits: number;
   };
   warnings: ValidationIssue[];
   encrypted: boolean;
@@ -357,12 +396,21 @@ export async function importBackup(
   if (!v.ok || !v.data) {
     throw new Error(v.errors.join(" "));
   }
-  const { organizations, categories, transactions, allocations, settings, auditLog, templates } =
+  const { organizations, categories, transactions, allocations, settings, auditLog, templates, categoryLimits } =
     v.data;
 
   await db.transaction(
     "rw",
-    [db.organizations, db.categories, db.transactions, db.allocations, db.settings, db.auditLog, db.templates],
+    [
+      db.organizations,
+      db.categories,
+      db.transactions,
+      db.allocations,
+      db.settings,
+      db.auditLog,
+      db.templates,
+      db.categoryLimits,
+    ],
     async () => {
       if (mode === "replace") {
         await Promise.all([
@@ -373,6 +421,7 @@ export async function importBackup(
           db.settings.clear(),
           db.auditLog.clear(),
           db.templates.clear(),
+          db.categoryLimits.clear(),
         ]);
       }
       if (organizations.length) await db.organizations.bulkPut(organizations as never);
@@ -382,6 +431,8 @@ export async function importBackup(
       if (settings.length) await db.settings.bulkPut(settings as never);
       if (auditLog && auditLog.length) await db.auditLog.bulkPut(auditLog as never);
       if (templates && templates.length) await db.templates.bulkPut(templates as never);
+      if (categoryLimits && categoryLimits.length)
+        await db.categoryLimits.bulkPut(categoryLimits as never);
     },
   );
   await markDataChanged();
@@ -394,6 +445,7 @@ export async function importBackup(
       settings: settings.length,
       auditLog: auditLog?.length ?? 0,
       templates: templates?.length ?? 0,
+      categoryLimits: categoryLimits?.length ?? 0,
     },
     warnings: v.warnings,
     encrypted,

@@ -8,18 +8,20 @@ An offline-first web app to help LDS ward bishopric and clerks track quarterly/a
 
 ## Features
 
-- **Dashboard** with KPIs, budget-vs-spent per organization, category breakdown, monthly trend, alerts, recent transactions, and a *Needs attention* widget (over-budget orgs, stuck workflow, missing receipts, unusually large expenses).
+- **Dashboard** with KPIs, budget-vs-spent per organization, category breakdown, monthly trend, alerts, recent transactions, and a *Needs attention* widget (over-budget orgs, stuck workflow, missing receipts, unusually large expenses, **over/near per-category limits**).
 - **Transactions** page with search/filter (year, quarter, organization, type, status), CSV export, **CSV import** with preview, edit/delete, and optional receipt attachment.
 - **Templates** for recurring transactions — pre-fill everything except date and amount; save from the Add Transaction form, manage on the Templates page.
 - **Quarterly allotment quick-add** on the Dashboard — one click to record the stake allotment with last-used amount/org/category pre-filled.
 - **Budget** page to set annual or quarterly allocations per organization, with helper to split annual into quarters.
-- **Reports** page with annual breakdown by organization (per-quarter spent), category totals, and monthly summary — each exportable to CSV.
+- **Year Management** — close a year to lock all edits (with optional per-org carry-over to the next year's annual allocation), reopen anytime.
+- **Per-org category limits** — set yearly caps per (organization, category); soft warning when a transaction would exceed the cap; usage table on Reports.
+- **Reports** page with annual breakdown by organization (per-quarter spent), category totals, monthly summary, and **category-limits usage** — each exportable to CSV.
 - **Print / Save as PDF** on Dashboard and Reports — produces a clean, official-looking document via the browser print dialog.
-- **Audit Log** of every create/update/delete on transactions, allocations, organizations, categories, templates, and key settings — filterable by entity/action/actor and exportable to CSV.
+- **Audit Log** of every create/update/delete on transactions, allocations, organizations, categories, templates, category limits, year close/reopen, and key settings — filterable by entity/action/actor and exportable to CSV.
 - **Trash** with 30-day auto-purge for deleted transactions and allocations, plus an 8-second Undo on delete.
 - **Multi-tab safety** — when another tab edits data, this tab refreshes automatically and shows a banner.
-- **Settings** to manage organizations, categories, ward name, currency, active actor, security, and backups.
-- **Backup & Restore** as JSON files (manual download/import; merge or replace) — includes the audit log and templates.
+- **Settings** to manage organizations, categories, ward name, currency, active actor, year management, category limits, security, and backups.
+- **Backup & Restore** as JSON files (manual download/import; merge or replace) — includes the audit log, templates, and category limits.
 - **Income tracking** for quarterly allotments, inter-ward transfers, refunds.
 - **PWA** — installable, works fully offline once loaded.
 - **Default currency**: PHP (₱). Configurable.
@@ -169,6 +171,22 @@ The **Dashboard** and **Reports** pages have a **Print / PDF** button. It opens 
 ## Active Actor
 
 Open **Settings → Active Actor** and pick **Bishop**, **Clerk**, **Asst. Clerk**, or **Other** (with a free-form name). This name is stamped onto every audit-log entry. Update it whenever a different person is using the app on this device.
+
+## Year Management & Carry-Over
+
+Open **Settings → Year Management** to see every year that has data. Each year shows an **Open** or **Closed** badge.
+
+- **Close** a year (with **CLOSE** confirmation) to lock all edits for that year. Closed-year transactions, allocations, allotment quick-adds, and CSV imports are rejected with a clear message. The Dashboard and Reports show a yellow **Year YYYY closed** badge.
+- **Carry-over** — when closing, a preview lists each organization's *remaining = allocated + income − spent*. Tick the orgs you want to carry forward and edit the per-org amount; on confirm the app creates (or augments) Q0 (annual) allocations for the next year, with one audit entry summarising the action.
+- **Reopen** any year with one click to allow edits again. Reopening does **not** reverse prior carry-overs; remove or edit those manually if needed.
+
+## Category Limits
+
+Open **Settings → Category Limits** to set a yearly cap per **(organization, category)** for a chosen year. The card shows current spend, percent used and remaining, with colour cues (red over the cap, amber ≥ 80 %, green otherwise).
+
+- When a new transaction would push that category over its cap, the app shows a non-blocking **Save anyway / Review** confirmation — the limit is a *guidance*, not a hard block.
+- The **Needs attention** widget on the Dashboard surfaces any category that is over (high) or near (medium) its cap.
+- The **Reports** page includes a **Category Limits Usage** table, exportable to CSV.
 
 ## Audit Log
 

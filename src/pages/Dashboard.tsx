@@ -30,6 +30,7 @@ import AllotmentQuickAdd from "../components/AllotmentQuickAdd";
 import AttentionWidget from "../components/AttentionWidget";
 import PrintHeader from "../components/PrintHeader";
 import { useSetting } from "../hooks/useSetting";
+import { useClosedYears } from "../hooks/useClosedYears";
 
 const COLORS = [
   "#006fc6",
@@ -46,6 +47,7 @@ const COLORS = [
 
 export default function Dashboard() {
   const currency = useSetting<string>("currency", "PHP");
+  const closedYears = useClosedYears();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [quarter, setQuarter] = useState<0 | 1 | 2 | 3 | 4>(
@@ -210,6 +212,14 @@ export default function Dashboard() {
               ))}
             </select>
           </div>
+          {closedYears.includes(year) && (
+            <span
+              className="badge bg-amber-100 text-amber-800 border-amber-200 self-end mb-1"
+              title="This year is closed; edits are locked. Reopen from Settings → Year Management."
+            >
+              Year {year} closed
+            </span>
+          )}
           <div>
             <label className="label">Period</label>
             <select

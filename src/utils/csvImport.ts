@@ -1,8 +1,9 @@
 import { db, type Transaction, type TransactionStatus, type TransactionType } from "../db/db";
-import { isReasonableDate, MAX_AMOUNT, nowIso } from "./format";
+import { isReasonableDate, MAX_AMOUNT, nowIso, yearFromDate } from "./format";
 import { logAudit } from "./audit";
 import { broadcastDataChanged } from "./broadcast";
 import { markDataChanged } from "./backup";
+import { getClosedYears } from "./yearClose";
 
 export const CSV_HEADERS = [
   "date",
@@ -151,6 +152,7 @@ export async function validateCsvText(text: string): Promise<CsvParseResult> {
   }
 
   const lookups = await buildLookups();
+  const closedYears = await getClosedYears();
   const rows: CsvPreviewRow[] = [];
   let validCount = 0;
   let invalidCount = 0;
@@ -183,6 +185,12 @@ export async function validateCsvText(text: string): Promise<CsvParseResult> {
         row: rowNumber,
         field: "date",
         message: "Invalid or missing date (expected YYYY-MM-DD).",
+      });
+    } else if (closedYears.includes(yearFromDate(raw.date))) {
+      errs.push({
+        row: rowNumber,
+        field: "date",
+        message: `Year ${yearFromDate(raw.date)} is closed. Reopen it in Settings to import.`,
       });
     }
 

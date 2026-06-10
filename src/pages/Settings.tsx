@@ -24,6 +24,8 @@ import { createLockHash, type LockHash } from "../utils/crypto";
 import { notifyLockSettingsChanged } from "../hooks/useLockState";
 import { logAudit, STANDARD_ACTORS } from "../utils/audit";
 import { broadcastDataChanged } from "../utils/broadcast";
+import YearManagementCard from "../components/YearManagementCard";
+import CategoryLimitsCard from "../components/CategoryLimitsCard";
 
 export default function Settings() {
   const wardName = useSetting<string>("wardName", "");
@@ -302,7 +304,7 @@ export default function Settings() {
       const result = await importBackup(file, importMode, passphrase);
       const counts = result.imported;
       toast.success(
-        `Imported${result.encrypted ? " (decrypted)" : ""}: ${counts.transactions} txns, ${counts.allocations} allocations, ${counts.organizations} orgs, ${counts.categories} cats, ${counts.auditLog} audit entries.`,
+        `Imported${result.encrypted ? " (decrypted)" : ""}: ${counts.transactions} txns, ${counts.allocations} allocations, ${counts.organizations} orgs, ${counts.categories} cats, ${counts.templates} templates, ${counts.categoryLimits} limits, ${counts.auditLog} audit entries.`,
       );
       if (result.integrityChecked && result.integrityOk) {
         toast.info("Integrity check passed.");
@@ -362,7 +364,7 @@ export default function Settings() {
     try {
       await db.transaction(
         "rw",
-        [db.organizations, db.categories, db.transactions, db.allocations, db.settings, db.auditLog, db.templates],
+        [db.organizations, db.categories, db.transactions, db.allocations, db.settings, db.auditLog, db.templates, db.categoryLimits],
         async () => {
           // Log the wipe BEFORE we clear, then clear (auditLog is also cleared as part of WIPE).
           await logAudit("setting", "delete", "all", "Wiped all data");
@@ -374,6 +376,7 @@ export default function Settings() {
             db.settings.clear(),
             db.auditLog.clear(),
             db.templates.clear(),
+            db.categoryLimits.clear(),
           ]);
         },
       );
@@ -592,6 +595,10 @@ export default function Settings() {
           </button>
         </div>
       </div>
+
+      <YearManagementCard />
+
+      <CategoryLimitsCard />
 
       <div className="card p-4 space-y-4">
         <div className="flex items-center justify-between gap-2 flex-wrap">

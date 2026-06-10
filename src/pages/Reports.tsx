@@ -11,9 +11,11 @@ import {
 } from "../utils/format";
 import { useSetting } from "../hooks/useSetting";
 import PrintHeader from "../components/PrintHeader";
+import { useClosedYears } from "../hooks/useClosedYears";
 
 export default function Reports() {
   const currency = useSetting<string>("currency", "PHP");
+  const closedYears = useClosedYears();
   const orgs = useLiveQuery(() => db.organizations.orderBy("order").toArray(), []);
   const cats = useLiveQuery(() => db.categories.toArray(), []);
   const txns = useLiveQuery(
@@ -186,7 +188,15 @@ export default function Reports() {
               ))}
             </select>
           </div>
-          <button className="btn-secondary" onClick={() => window.print()}>
+          {closedYears.includes(year) && (
+            <span
+              className="badge bg-amber-100 text-amber-800 border-amber-200 self-end mb-1"
+              title="This year is closed; edits are locked. Reopen from Settings → Year Management."
+            >
+              Year {year} closed
+            </span>
+          )}
+          <button className="btn-secondary no-print" onClick={() => window.print()}>
             Print / Save as PDF
           </button>
         </div>
@@ -306,6 +316,8 @@ export default function Reports() {
           </table>
         </div>
       </div>
+
+      <CategoryLimitsReport year={year} />
     </div>
   );
 }
@@ -315,6 +327,129 @@ function Stat({ label, value }: { label: string; value: string }) {
     <div className="card p-3">
       <div className="text-xs uppercase text-slate-500">{label}</div>
       <div className="text-lg font-bold mt-1">{value}</div>
+    </div>
+  );
+}
+
+function CategoryLimitsReport({ year }: { year: number }) {
+  const currency = useSetting<string>("currency", "PHP");
+  const limits = useLiveQuery(
+    () => db.categoryLimits.where("year").equals(year).toArray(),
+    [year],
+  );
+  const orgs = useLiveQuery(() => db.organizations.orderBy("order").toArray(), []);
+  const cats = useLiveQuery(() => db.categories.toArray(), []);
+  const txns = useLiveQuery(
+    () => db.transactions.filter((t) => !t.deletedAt).toArray(),
+    [],
+  );
+
+  const rows = useMemo(() => {
+    if (!limits || !txns) return [];
+    return limits
+      .map((lim) => {
+        const spent = txns
+          .filter(
+            (t) =>
+              t.type === "expense" &&
+              yearFromDate(t.date) === year &&
+              t.organizationId === lim.organizationId &&
+              (t.categoryId ?? null) === (lim.categoryId ?? null),
+          )
+          .reduce((s, t) => s + t.amount, 0);
+        const orgName =
+          (orgs ?? []).find((o) => o.id === lim.organizationId)?.name ??
+          `Org #${lim.organizationId}`;
+        const catName =
+          (cats ?? []).find((c) => c.id === lim.categoryId)?.name ??
+          `Cat #${lim.categoryId}`;
+        const remaining = lim.amount - spent;
+        const pct = lim.amount > 0 ? (spent / lim.amount) * 100 : 0;
+        return {
+          id: lim.id!,
+          orgName,
+          catName,
+          limit: lim.amount,
+          spent,
+          remaining,
+          pct,
+        };
+      })
+      .sort(
+        (a, b) =>
+          a.orgName.localeCompare(b.orgName) || a.catName.localeCompare(b.catName),
+      );
+  }, [limits, txns, orgs, cats, year]);
+
+  if (!limits || rows.length === 0) return null;
+
+  const exportLimits = () => {
+    downloadCsv(
+      `category-limits-${year}.csv`,
+      ["Organization", "Category", "Limit", "Spent", "Remaining", "Used %"],
+      rows.map((r) => [
+        r.orgName,
+        r.catName,
+        r.limit.toFixed(2),
+        r.spent.toFixed(2),
+        r.remaining.toFixed(2),
+        r.pct.toFixed(0),
+      ]),
+    );
+  };
+
+  return (
+    <div className="card p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-semibold text-slate-800">Category Limits Usage</h3>
+        <button className="btn-secondary no-print" onClick={exportLimits}>
+          Export CSV
+        </button>
+      </div>
+      <table className="min-w-full text-sm">
+        <thead className="bg-slate-50">
+          <tr className="text-left border-b">
+            <th className="py-2 px-3">Organization</th>
+            <th className="py-2 px-3">Category</th>
+            <th className="py-2 px-3 text-right">Limit</th>
+            <th className="py-2 px-3 text-right">Spent</th>
+            <th className="py-2 px-3 text-right">Remaining</th>
+            <th className="py-2 px-3 text-right">Used</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => {
+            const tone =
+              r.pct > 100
+                ? "text-red-700"
+                : r.pct >= 80
+                  ? "text-amber-700"
+                  : "text-emerald-700";
+            return (
+              <tr key={r.id} className="border-b last:border-0">
+                <td className="py-2 px-3">{r.orgName}</td>
+                <td className="py-2 px-3">{r.catName}</td>
+                <td className="py-2 px-3 text-right">
+                  {formatCurrency(r.limit, currency)}
+                </td>
+                <td className={`py-2 px-3 text-right ${tone}`}>
+                  {formatCurrency(r.spent, currency)}
+                </td>
+                <td
+                  className={`py-2 px-3 text-right ${
+                    r.remaining < 0 ? "text-red-700" : ""
+                  }`}
+                >
+                  {formatCurrency(r.remaining, currency)}
+                </td>
+                <td className={`py-2 px-3 text-right ${tone}`}>
+                  {r.pct.toFixed(0)}%
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }

@@ -5,10 +5,11 @@ import Modal from "./Modal";
 import { useToast } from "./Toast";
 import { useSetting } from "../hooks/useSetting";
 import { setSetting } from "../hooks/useSetting";
+import { useClosedYears } from "../hooks/useClosedYears";
 import { logAudit } from "../utils/audit";
 import { broadcastDataChanged } from "../utils/broadcast";
 import { markDataChanged } from "../utils/backup";
-import { isReasonableDate, MAX_AMOUNT, nowIso, todayIso } from "../utils/format";
+import { isReasonableDate, MAX_AMOUNT, nowIso, todayIso, yearFromDate } from "../utils/format";
 
 interface Props {
   open: boolean;
@@ -28,6 +29,7 @@ export default function AllotmentQuickAdd({ open, onClose }: Props) {
   const toast = useToast();
   const orgs = useLiveQuery(() => db.organizations.orderBy("order").toArray(), []);
   const cats = useLiveQuery(() => db.categories.toArray(), []);
+  const closedYears = useClosedYears();
 
   const lastAmount = useSetting<number | null>(SETTING_LAST_AMOUNT, null);
   const lastOrg = useSetting<number | null>(SETTING_LAST_ORG, null);
@@ -70,6 +72,10 @@ export default function AllotmentQuickAdd({ open, onClose }: Props) {
   const submit = async () => {
     if (!isReasonableDate(date)) {
       toast.error("Pick a valid date.");
+      return;
+    }
+    if (closedYears.includes(yearFromDate(date))) {
+      toast.error(`Year ${yearFromDate(date)} is closed. Reopen it in Settings to edit.`);
       return;
     }
     const amt = parseFloat(amount);

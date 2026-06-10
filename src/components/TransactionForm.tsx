@@ -16,7 +16,15 @@ import { markDataChanged } from "../utils/backup";
 import { logAudit } from "../utils/audit";
 import { broadcastDataChanged } from "../utils/broadcast";
 import { addTemplate } from "../utils/templates";
+import { useClosedYears } from "../hooks/useClosedYears";
+import {
+  getCategorySpentYTD,
+  getLimitFor,
+} from "../utils/categoryLimits";
+import { yearFromDate, formatCurrency } from "../utils/format";
 import { useToast } from "./Toast";
+import { useConfirm } from "./Confirm";
+import { useSetting } from "../hooks/useSetting";
 
 interface Props {
   initial?: Transaction;
@@ -41,7 +49,10 @@ export default function TransactionForm({
   const allOrgs = useLiveQuery(() => db.organizations.orderBy("order").toArray(), []);
   const cats = useLiveQuery(() => db.categories.toArray(), []);
   const templates = useLiveQuery(() => db.templates.orderBy("order").toArray(), []);
+  const closedYears = useClosedYears();
+  const currency = useSetting<string>("currency", "PHP");
   const toast = useToast();
+  const confirm = useConfirm();
 
   const [date, setDate] = useState(initial?.date ?? todayIso());
   const [type, setType] = useState<TransactionType>(initial?.type ?? "expense");
@@ -183,6 +194,67 @@ export default function TransactionForm({
       toast.error("Please fix the errors highlighted in the form.");
       return;
     }
+
+    // Closed year guard. Block edits/creates that would change a closed year.
+    const targetYear = yearFromDate(date);
+    if (closedYears.includes(targetYear)) {
+      toast.error(
+        `Year ${targetYear} is closed. Reopen it from Settings → Year Management to edit.`,
+      );
+      return;
+    }
+    // If editing across the year boundary, also block when the *original* year
+    // is closed.
+    if (initial && yearFromDate(initial.date) !== targetYear) {
+      if (closedYears.includes(yearFromDate(initial.date))) {
+        toast.error(
+          `Original year ${yearFromDate(initial.date)} is closed and cannot be edited.`,
+        );
+        return;
+      }
+    }
+
+    // Soft category-limit warning (expense only, category set, no override yet).
+    const amt = parseFloat(amount);
+    if (
+      type === "expense" &&
+      categoryId != null &&
+      organizationId !== "" &&
+      Number.isFinite(amt) &&
+      amt > 0
+    ) {
+      try {
+        const limit = await getLimitFor(targetYear, Number(organizationId), categoryId);
+        if (limit) {
+          const spent = await getCategorySpentYTD(
+            targetYear,
+            Number(organizationId),
+            categoryId,
+          );
+          // Subtract the original amount when editing the same row to avoid
+          // double-counting against itself.
+          const baseline =
+            initial && initial.type === "expense" && initial.categoryId === categoryId
+              ? spent - initial.amount
+              : spent;
+          const projected = baseline + amt;
+          if (projected > limit.amount) {
+            const cat = cats?.find((c) => c.id === categoryId);
+            const ok = await confirm({
+              title: "Category limit exceeded",
+              message: `${cat?.name ?? "This category"} would reach ${formatCurrency(projected, currency)} for ${targetYear}, over the configured limit of ${formatCurrency(limit.amount, currency)}. Save anyway?`,
+              confirmLabel: "Save anyway",
+              cancelLabel: "Review",
+              tone: "default",
+            });
+            if (!ok) return;
+          }
+        }
+      } catch {
+        // Limit check failures should never block saving.
+      }
+    }
+
     setSubmitting(true);
     try {
       const now = nowIso();

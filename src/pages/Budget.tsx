@@ -13,11 +13,13 @@ import { markDataChanged } from "../utils/backup";
 import { logAudit } from "../utils/audit";
 import { broadcastDataChanged } from "../utils/broadcast";
 import { restoreAllocation, softDeleteAllocation } from "../utils/trash";
+import { useClosedYears } from "../hooks/useClosedYears";
 
 type QuarterChoice = 0 | 1 | 2 | 3 | 4;
 
 export default function Budget() {
   const currency = useSetting<string>("currency", "PHP");
+  const closedYears = useClosedYears();
   const orgs = useLiveQuery(() => db.organizations.orderBy("order").toArray(), []);
   // Live, non-trashed allocations and transactions only.
   const allocations = useLiveQuery(
@@ -120,6 +122,10 @@ export default function Budget() {
   };
 
   const saveOne = async (orgId: number) => {
+    if (closedYears.includes(year)) {
+      toast.error(`Year ${year} is closed. Reopen it in Settings to edit.`);
+      return;
+    }
     const raw = draft[orgId] ?? "";
     const amt = parseFloat(raw);
     if (!Number.isFinite(amt) || amt < 0) {
@@ -164,6 +170,10 @@ export default function Budget() {
   };
 
   const removeAllocation = async (orgId: number) => {
+    if (closedYears.includes(year)) {
+      toast.error(`Year ${year} is closed. Reopen it in Settings to edit.`);
+      return;
+    }
     const existing = (allocations ?? []).find(
       (a) => a.organizationId === orgId && a.year === year && a.quarter === quarter,
     );
@@ -201,6 +211,10 @@ export default function Budget() {
   };
 
   const copyFromAnnual = async () => {
+    if (closedYears.includes(year)) {
+      toast.error(`Year ${year} is closed. Reopen it in Settings to edit.`);
+      return;
+    }
     if (quarter === 0) {
       toast.warning("Switch to a specific quarter first.");
       return;
@@ -254,6 +268,14 @@ export default function Budget() {
 
   return (
     <div className="space-y-4">
+      {closedYears.includes(year) && (
+        <div className="card p-3 border-l-4 border-amber-500 bg-amber-50">
+          <div className="text-sm">
+            <strong>Year {year} is closed.</strong> Allocations are read-only.
+            Reopen it in <em>Settings → Year Management</em> to make changes.
+          </div>
+        </div>
+      )}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Budget Allocations</h1>

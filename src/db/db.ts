@@ -72,7 +72,9 @@ export type AuditEntity =
   | "organization"
   | "category"
   | "setting"
-  | "template";
+  | "template"
+  | "categoryLimit"
+  | "yearClose";
 
 export type AuditAction = "create" | "update" | "delete" | "restore" | "purge";
 
@@ -115,6 +117,24 @@ export interface TransactionTemplate {
   updatedAt: string;
 }
 
+/**
+ * Soft, per-(year, organization, category) spending limit. Limits are
+ * advisory: when a transaction would exceed the cap a warning is shown,
+ * the Attention widget surfaces over-limit categories, and Reports compare
+ * usage vs limit. Year is included so limits can roll year-over-year.
+ */
+export interface CategoryLimit {
+  id?: number;
+  year: number;
+  organizationId: number;
+  categoryId: number;
+  /** Maximum suggested spend for this combination during the year (positive). */
+  amount: number;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 class WardBudgetDB extends Dexie {
   organizations!: Table<Organization, number>;
   categories!: Table<Category, number>;
@@ -123,6 +143,7 @@ class WardBudgetDB extends Dexie {
   settings!: Table<Setting, string>;
   auditLog!: Table<AuditLogEntry, number>;
   templates!: Table<TransactionTemplate, number>;
+  categoryLimits!: Table<CategoryLimit, number>;
 
   constructor() {
     super("WardBudgetDB");
@@ -182,10 +203,26 @@ class WardBudgetDB extends Dexie {
       auditLog: "++id, at, entity, action, [entity+action], actor",
       templates: "++id, name, order, organizationId",
     });
+    // v4 — adds the categoryLimits table. The `closedYears` setting is just
+    // a JSON array of numbers in the existing settings table; no schema
+    // change is needed for it.
+    this.version(4).stores({
+      organizations: "++id, name, order, active",
+      categories: "++id, name, organizationId, active",
+      transactions:
+        "++id, date, type, organizationId, categoryId, status, createdAt, deletedAt",
+      allocations:
+        "++id, [year+quarter+organizationId], year, quarter, organizationId, deletedAt",
+      settings: "key",
+      auditLog: "++id, at, entity, action, [entity+action], actor",
+      templates: "++id, name, order, organizationId",
+      categoryLimits:
+        "++id, [year+organizationId+categoryId], year, organizationId, categoryId",
+    });
   }
 }
 
 export const db = new WardBudgetDB();
 
 /** Current schema version that the app code targets. */
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;

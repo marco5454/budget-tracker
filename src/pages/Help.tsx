@@ -312,6 +312,61 @@ export default function Help() {
         </p>
       </Section>
 
+      <Section title="Year Management & Carry-Over">
+        <p>
+          Open <strong>Settings → Year Management</strong> to see every
+          year that has data. Each year is either <strong>Open</strong> or{" "}
+          <strong>Closed</strong>.
+        </p>
+        <ul className="list-disc ml-6 space-y-1">
+          <li>
+            <strong>Close a year</strong> (with the <code>CLOSE</code>{" "}
+            confirmation) to lock all edits for that year. Closed-year
+            transactions, allocations, allotment quick-adds, and CSV
+            imports are rejected with a clear message. The Dashboard and
+            Reports show a <em>Year YYYY closed</em> badge.
+          </li>
+          <li>
+            <strong>Carry-over</strong> — when closing, a preview lists
+            each organization's remaining balance (allocated + income −
+            spent). Tick the orgs you want to carry forward and edit the
+            per-org amount; on confirm the app creates (or augments) the
+            next year's annual (Q0) allocations and writes a single audit
+            entry.
+          </li>
+          <li>
+            <strong>Reopen</strong> any year with one click to allow edits
+            again. Reopening does not reverse prior carry-overs.
+          </li>
+        </ul>
+      </Section>
+
+      <Section title="Category Limits">
+        <p>
+          Open <strong>Settings → Category Limits</strong> to set a
+          yearly cap per <strong>(organization, category)</strong>. The
+          card shows the current spend, percent used, and remaining for
+          each limit you've configured.
+        </p>
+        <ul className="list-disc ml-6 space-y-1">
+          <li>
+            When a transaction would push a category over its cap, the
+            app shows a soft <em>Save anyway / Review</em> confirmation —
+            it's guidance, not a hard block.
+          </li>
+          <li>
+            The <strong>Needs attention</strong> widget on the Dashboard
+            highlights categories that are over (high) or near (medium)
+            their limit.
+          </li>
+          <li>
+            The <strong>Reports</strong> page includes a{" "}
+            <em>Category Limits Usage</em> table for the chosen year,
+            exportable to CSV.
+          </li>
+        </ul>
+      </Section>
+
       <Section title="Audit Log">
         <p>
           Every create, update, and delete on transactions, allocations,
