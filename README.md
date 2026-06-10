@@ -122,13 +122,21 @@ npm run package-portable
 
 This produces `dist-portable/WardBudgetTracker-Portable/` (about 1 MB) and a matching `.zip` (~300 KB) containing:
 
-- The built app
+- The built app (`app/` folder, ~900 KB total)
 - Cross-platform launchers (`Launch-Windows.bat`, `Launch-Linux.sh`, `Launch-macOS.command`)
 - A README and DISCLAIMER.txt
 
-Copy the folder to a USB stick and double-click the launcher for that OS — the app opens in the default browser, fully offline, no Node, no installer.
+Copy the folder to a USB stick and double-click the launcher for that OS — the app opens in the default browser, fully offline, no Node.js, no installer, no internet required.
 
-**See [`PORTABLE-SETUP.md`](./PORTABLE-SETUP.md)** for the full walkthrough including how to move data between computers using the backup feature.
+**On-the-go essentials:**
+
+1. Drop the `WardBudgetTracker-Portable\` folder on the stick, plus an empty `Backups\` folder next to it.
+2. On every computer where you launch the app, point **Settings → Auto-Backup** at that `Backups\` folder (Chrome / Edge only). The app will write a fresh, integrity-checked backup there each day.
+3. **Important:** the database lives in *each computer's browser profile*, not on the stick. Auto-Backup is how data travels between machines. Use **Settings → Backup & Restore → Import** on a new computer to load the latest backup from `Backups\`.
+4. Set a **PIN** (Settings → App Lock) on every computer for an extra access barrier.
+5. For maximum privacy, use the **encrypted backup (.wbtbak)** export with a passphrase before moving the stick.
+
+**See [`PORTABLE-SETUP.md`](./PORTABLE-SETUP.md)** for the full step-by-step walkthrough including layout diagrams, multi-computer workflow, and troubleshooting.
 
 ---
 
@@ -213,9 +221,30 @@ On the **Transactions** page, click **Import CSV** to bulk-add transactions.
 - Organization and category are matched **by name (case-insensitive)** against the entries on this device — make sure they exist before importing.
 - A preview is shown before commit. Invalid rows are listed with reasons and skipped (valid rows still import).
 
+## Ward Budget Pool (how the money flows)
+
+LDS wards receive a single quarterly **allotment** from the stake/headquarters. The bishopric then **allocates** portions of that pool to each organization (Elders Quorum, Relief Society, Primary, etc). The app models this with a top-of-list organization called **"Ward Budget"** — the shared pool.
+
+- **Allotment** = income the ward receives. Record it against **Ward Budget** (this is the default in **+ Allotment**).
+- **Allocation** = the planning cap each organization gets out of the pool. Set these on the **Budget** page per organization.
+- Both the **Dashboard** and the **Budget** page show a **Ward Budget Pool** card with: *Pool received · Allocated to orgs · Unallocated · Coverage %*. A green/amber/red indicator shows the % of the pool already allocated. The Budget page version is **scope-aware** — it changes with your Year/Period selector so you see exactly the period you're planning.
+- If total allocations to other orgs exceed the pool's income, the app shows an **Over-allocated** warning (red) plus a high-severity item in the **Needs attention** widget.
+- The **Ward Budget** row in the Budget table is highlighted in light blue and tagged with a **"Pool"** badge so it's easy to spot.
+
+> Setting an EQ allocation does **not** automatically subtract from a Bishopric income — those are independent organizations. Allocations are *plans*, not transfers. Always record allotments on **Ward Budget**, and use allocations to cap how much each organization may spend.
+
+### Budget page views
+
+The Budget page has two viewing modes via the **Period** dropdown:
+
+- **All quarters (overview)** — wide table with one row per organization and columns *Q1 · Q2 · Q3 · Q4 · Annual · Spent (year) · Income (year)*. Click any cell to edit; **Enter** saves, **Esc** cancels. Best for end-of-quarter planning across the whole year.
+- **Annual / Q1 / Q2 / Q3 / Q4** — focused single-period view with extra columns: Allocation, Spent (in period), Income (in period), Remaining, Annual rollup. Best for entering one period at a time.
+
+> **Annual is a separate rollup, not a sum of Q1–Q4.** It's a stand-alone "yearly cap" line. Use whichever style fits how you plan.
+
 ## Quarterly Allotment Quick-Add
 
-On the **Dashboard**, click **+ Allotment** to record the quarterly stake allotment as an income transaction. The amount, organization and category from the last allotment are pre-filled, so subsequent quarters take a single click + confirm.
+On the **Dashboard**, click **+ Allotment** to record the quarterly stake allotment as an income transaction. It defaults to the **Ward Budget** pool. The amount, organization and category from the last allotment are pre-filled, so subsequent quarters take a single click + confirm.
 
 ## Print / Save as PDF
 

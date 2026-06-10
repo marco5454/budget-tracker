@@ -37,9 +37,11 @@ USB:\
 ## Tips for the bishop / clerk
 
 1. **First time on a new computer** — the disclaimer acknowledgment screen will appear. Read it, tick the box, and Continue.
-2. **Always set up Auto-Backup** to the USB `Backups` folder so you never lose data.
+2. **Always set up Auto-Backup** to the USB `Backups` folder so you never lose data (Chrome / Edge required).
 3. **Set a PIN** in Settings → App Lock for an extra access barrier on shared computers.
-4. **Reconcile with MLS/LCR** monthly — this app is not the source of truth.
+4. **Use the All-quarters overview** on the Budget page to plan Q1–Q4 + Annual side-by-side.
+5. **Watch the Ward Budget Pool card** — it warns when allocations exceed what the pool received.
+6. **Reconcile with MLS/LCR** monthly — this app is not the source of truth.
 
 ## Troubleshooting
 

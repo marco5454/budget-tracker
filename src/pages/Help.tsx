@@ -96,18 +96,29 @@ export default function Help() {
 
       <Section title="Budget Allocations">
         <p>
-          The Church typically distributes ward budgets per quarter. You can:
+          The Church typically distributes ward budgets per quarter. The{" "}
+          <strong>Budget</strong> page has two viewing modes via the{" "}
+          <strong>Period</strong> dropdown:
         </p>
         <ul className="list-disc pl-6 space-y-1">
           <li>
-            Set an <strong>Annual</strong> allocation per organization, OR
+            <strong>All quarters (overview)</strong> — wide table with one row
+            per organization and columns Q1 / Q2 / Q3 / Q4 / Annual / Spent
+            (year) / Income (year). Click any cell to edit; press{" "}
+            <kbd>Enter</kbd> to save, <kbd>Esc</kbd> to cancel.
           </li>
           <li>
-            Set <strong>Quarterly (Q1–Q4)</strong> allocations directly.
+            <strong>Annual or Q1–Q4</strong> — focused single-period view with
+            extra columns: Allocation, Spent (in period), Income (in period),
+            Remaining, Annual rollup. Best for entering one period at a time.
           </li>
           <li>
-            On a quarter view, click <em>"Split annual / 4"</em> to evenly
-            distribute the annual numbers across that quarter.
+            On any quarter view, click <em>"Split annual / 4"</em> to evenly
+            distribute that org's annual allocation into the quarter.
+          </li>
+          <li>
+            <strong>Annual is a separate rollup, not a sum of Q1–Q4.</strong>{" "}
+            It's a stand-alone yearly cap line in the data model.
           </li>
         </ul>
         <p>
@@ -146,13 +157,54 @@ export default function Help() {
           </li>
           <li>
             <strong>+ Allotment</strong> button records the quarterly stake
-            allotment as an income transaction. The amount, organization and
+            allotment as an income transaction. It defaults to the
+            <strong> Ward Budget</strong> pool. The amount, organization and
             category from the last allotment are pre-filled.
           </li>
           <li>
             <strong>Print / PDF</strong> button opens the browser's print
             dialog. Choose <em>Save as PDF</em> as the destination to produce a
             clean, printable statement (nav and toolbars are hidden).
+          </li>
+        </ul>
+      </Section>
+
+      <Section title="Ward Budget Pool — how the money flows">
+        <p>
+          LDS wards receive a single quarterly <strong>allotment</strong> from
+          the stake/headquarters. The bishopric then{" "}
+          <strong>allocates</strong> portions of that pool to each
+          organization (Elders Quorum, Relief Society, Primary, etc).
+        </p>
+        <ul className="list-disc pl-6 space-y-1">
+          <li>
+            <strong>Ward Budget</strong> is a special top-of-list organization
+            that represents the shared pool. Record allotments here. In tables
+            it's highlighted in light blue with a <em>Pool</em> badge.
+          </li>
+          <li>
+            Other organizations get budget caps via <strong>allocations</strong>{" "}
+            on the <strong>Budget</strong> page. These do <em>not</em>{" "}
+            automatically debit the pool — they are planning numbers.
+          </li>
+          <li>
+            Both the <strong>Dashboard</strong> and the <strong>Budget</strong>{" "}
+            page show a <strong>Ward Budget Pool</strong> card with{" "}
+            <em>Pool received</em>, <em>Allocated to orgs</em>,{" "}
+            <em>Unallocated</em>, and a coverage indicator. The Budget page
+            version is <strong>scope-aware</strong> — it changes with your
+            Year/Period selector so you see exactly the period you're
+            planning.
+          </li>
+          <li>
+            If allocations to other orgs exceed the pool's income for the
+            period, the card turns <span className="text-red-600">red</span>{" "}
+            with an <strong>Over-allocated</strong> badge, and{" "}
+            <strong>Needs attention</strong> raises a high-severity item.
+          </li>
+          <li>
+            Allocations don't move money — actual cash flow is only recorded
+            when you log a <strong>transaction</strong> (income or expense).
           </li>
         </ul>
       </Section>
@@ -495,6 +547,55 @@ export default function Help() {
           ever), an amber <strong>"Backup reminder"</strong> banner appears at
           the top of the app. Clicking it takes you to Settings to download a
           fresh backup. You can dismiss the banner for the current session.
+        </p>
+      </Section>
+
+      <Section title="Portable / On-the-Go (USB stick)">
+        <p>
+          You can carry the app on a USB stick and run it on any
+          Windows / macOS / Linux laptop without installing anything. The whole
+          bundle is about 1 MB.
+        </p>
+        <ol className="list-decimal pl-6 space-y-1">
+          <li>
+            On the developer machine: run{" "}
+            <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">
+              npm run package-portable
+            </code>{" "}
+            once. This creates{" "}
+            <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">
+              dist-portable/WardBudgetTracker-Portable/
+            </code>{" "}
+            with cross-platform launchers and the built app.
+          </li>
+          <li>
+            Copy that folder to a USB stick. Add an empty{" "}
+            <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">
+              Backups
+            </code>{" "}
+            folder next to it.
+          </li>
+          <li>
+            On any computer, plug in the stick and double-click the launcher
+            for that OS (<code>.bat</code> on Windows,{" "}
+            <code>.command</code> on macOS, <code>.sh</code> on Linux).
+          </li>
+          <li>
+            On Chrome / Edge, point <strong>Settings → Auto-Backup</strong> at
+            the stick's <code>Backups</code> folder so backups travel with you.
+          </li>
+        </ol>
+        <p className="mt-2">
+          <strong>Critical note about data:</strong> the database lives in{" "}
+          <em>each computer's browser profile</em>, not on the stick. To move
+          data from Computer A to Computer B, export a backup on A (or rely on
+          Auto-Backup) and <strong>Import</strong> it on B via{" "}
+          <strong>Settings → Backup &amp; Restore</strong>.
+        </p>
+        <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+          See <code>PORTABLE-SETUP.md</code> in the project for the full
+          step-by-step walkthrough, recommended folder layout, encryption
+          tips, and troubleshooting.
         </p>
       </Section>
 

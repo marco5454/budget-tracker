@@ -10,6 +10,7 @@ import { logAudit } from "../utils/audit";
 import { broadcastDataChanged } from "../utils/broadcast";
 import { markDataChanged } from "../utils/backup";
 import { isReasonableDate, MAX_AMOUNT, nowIso, todayIso, yearFromDate } from "../utils/format";
+import { WARD_BUDGET_ORG_NAME } from "../db/seed";
 
 interface Props {
   open: boolean;
@@ -58,14 +59,17 @@ export default function AllotmentQuickAdd({ open, onClose }: Props) {
     }
   }, [open, lastAmount, lastOrg, lastCat, cats]);
 
-  // If org still empty after defaults loaded, pick the first active org with a
-  // sensible name (Bishopric or Ward Activities) or the first active org.
+  // If org still empty after defaults loaded, prefer Ward Budget pool, then
+  // Bishopric/Ward Activities, then first active org.
   useEffect(() => {
     if (orgId !== "" || !orgs || orgs.length === 0) return;
-    const preferred = orgs.find(
+    const wardBudget = orgs.find(
+      (o) => o.active && o.name.toLowerCase() === WARD_BUDGET_ORG_NAME.toLowerCase(),
+    );
+    const fallback = orgs.find(
       (o) => o.active && /bishopric|ward activities/i.test(o.name),
     );
-    const pick = preferred ?? orgs.find((o) => o.active) ?? orgs[0];
+    const pick = wardBudget ?? fallback ?? orgs.find((o) => o.active) ?? orgs[0];
     if (pick?.id) setOrgId(pick.id);
   }, [orgs, orgId]);
 
@@ -144,8 +148,8 @@ export default function AllotmentQuickAdd({ open, onClose }: Props) {
       <div className="space-y-3">
         <p className="text-sm text-slate-600">
           Records a single income transaction for the quarterly stake
-          allotment. The amount, organization and category from the last
-          allotment are pre-filled.
+          allotment. Defaults to the <strong>Ward Budget</strong> pool — the
+          shared pool that other organizations are allocated from.
         </p>
         <div className="grid grid-cols-2 gap-3">
           <div>

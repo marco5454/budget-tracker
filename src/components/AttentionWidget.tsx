@@ -8,6 +8,7 @@ import {
   yearFromDate,
 } from "../utils/format";
 import { useSetting } from "../hooks/useSetting";
+import { WARD_BUDGET_ORG_NAME } from "../db/seed";
 
 interface Issue {
   key: string;
@@ -162,13 +163,41 @@ export default function AttentionWidget({ year }: { year: number }) {
       }
     }
 
+    // 6) Ward Budget Pool over-allocated
+    const wardBudgetOrg = orgs.find(
+      (o) => o.name.toLowerCase() === WARD_BUDGET_ORG_NAME.toLowerCase(),
+    );
+    if (wardBudgetOrg && wardBudgetOrg.id != null) {
+      const poolReceived = yearTxns
+        .filter((t) => t.organizationId === wardBudgetOrg.id && t.type === "income")
+        .reduce((s, t) => s + t.amount, 0);
+      const allocatedOut = yearAllocs
+        .filter((a) => a.organizationId !== wardBudgetOrg.id)
+        .reduce((s, a) => s + a.amount, 0);
+      if (poolReceived > 0 && allocatedOut > poolReceived) {
+        out.push({
+          key: "pool-overallocated",
+          severity: "high",
+          title: "Ward Budget pool over-allocated",
+          detail: `Allocated ${formatCurrency(allocatedOut, currency)} but pool received only ${formatCurrency(poolReceived, currency)} (${formatCurrency(allocatedOut - poolReceived, currency)} over).`,
+          href: "/budget",
+        });
+      } else if (poolReceived > 0 && allocatedOut / poolReceived >= 0.95) {
+        out.push({
+          key: "pool-near-capacity",
+          severity: "medium",
+          title: "Ward Budget pool near capacity",
+          detail: `Allocated ${formatCurrency(allocatedOut, currency)} of ${formatCurrency(poolReceived, currency)} received (${((allocatedOut / poolReceived) * 100).toFixed(0)}%).`,
+          href: "/budget",
+        });
+      }
+    }
+
     // Stable order by severity then key
     const rank: Record<Issue["severity"], number> = { high: 0, medium: 1, low: 2 };
     out.sort((a, b) => rank[a.severity] - rank[b.severity] || a.key.localeCompare(b.key));
     return out;
-  }, [txns, orgs, allocations, cats, limits, year, currency]);
-
-  if (issues.length === 0) {
+  }, [txns, orgs, allocations, cats, limits, year, currency]);  if (issues.length === 0) {
     return (
       <div className="card p-4 border-l-4 border-emerald-500">
         <div className="font-semibold text-slate-800">Needs attention</div>

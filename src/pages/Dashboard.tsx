@@ -32,6 +32,7 @@ import PrintHeader from "../components/PrintHeader";
 import OnboardingChecklist from "../components/OnboardingChecklist";
 import { useSetting } from "../hooks/useSetting";
 import { useClosedYears } from "../hooks/useClosedYears";
+import { WARD_BUDGET_ORG_NAME } from "../db/seed";
 
 const COLORS = [
   "#006fc6",
@@ -185,6 +186,38 @@ export default function Dashboard() {
 
   const alerts = perOrg.filter((o) => o.budget > 0 && (o.pct >= 80 || o.spent > o.budget));
 
+  // ----- Ward Budget Pool model -----
+  // The "Ward Budget" organization is the shared pool: where the quarterly
+  // allotment from the stake/headquarters lives before being allocated to
+  // sub-organizations. We compute pool received vs. amount allocated out to
+  // other orgs so the bishopric can see at a glance whether they have
+  // distributed too much (or have unallocated funds left).
+  const wardBudgetOrgId = useMemo(
+    () =>
+      orgs?.find(
+        (o) => o.name.toLowerCase() === WARD_BUDGET_ORG_NAME.toLowerCase(),
+      )?.id ?? null,
+    [orgs],
+  );
+  const poolRow = perOrg.find((o) => o.id === wardBudgetOrgId);
+  const poolReceived = poolRow?.income ?? 0;
+  const poolSpent = poolRow?.spent ?? 0; // direct spending against the pool
+  // Allocations to OTHER organizations (excluding the pool itself).
+  const allocatedOut = perOrg
+    .filter((o) => o.id !== wardBudgetOrgId)
+    .reduce((s, o) => s + o.allocated, 0);
+  const otherIncome = perOrg
+    .filter((o) => o.id !== wardBudgetOrgId)
+    .reduce((s, o) => s + o.income, 0);
+  // Total inflow into the ward (pool + any income tagged to other orgs e.g.
+  // refunds / transfers attributed elsewhere).
+  const totalInflow = poolReceived + otherIncome;
+  const unallocated = poolReceived - allocatedOut;
+  const allocationCoveragePct =
+    poolReceived > 0 ? (allocatedOut / poolReceived) * 100 : allocatedOut > 0 ? 999 : 0;
+  const overAllocated = allocatedOut > poolReceived && poolReceived > 0;
+  const showPoolCard = wardBudgetOrgId !== null && (poolReceived > 0 || allocatedOut > 0 || poolSpent > 0);
+
   const years = Array.from(
     new Set([
       now.getFullYear(),
@@ -272,6 +305,107 @@ export default function Dashboard() {
       </div>
 
       <AttentionWidget year={year} />
+
+      {showPoolCard && (
+        <div
+          className={`card p-4 border-l-4 ${
+            overAllocated
+              ? "border-red-500"
+              : allocationCoveragePct >= 80
+                ? "border-amber-500"
+                : "border-emerald-500"
+          }`}
+        >
+          <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+            <div>
+              <div className="font-semibold text-slate-800">Ward Budget Pool</div>
+              <div className="text-xs text-slate-500">
+                Money the ward received from the stake / headquarters, and how
+                much has been allocated out to organizations.
+              </div>
+            </div>
+            {overAllocated ? (
+              <span className="badge bg-red-100 text-red-800 border-red-200">
+                Over-allocated
+              </span>
+            ) : allocationCoveragePct >= 80 ? (
+              <span className="badge bg-amber-100 text-amber-800 border-amber-200">
+                {allocationCoveragePct.toFixed(0)}% allocated
+              </span>
+            ) : (
+              <span className="badge bg-emerald-100 text-emerald-800 border-emerald-200">
+                {allocationCoveragePct >= 999
+                  ? "Allocated without income"
+                  : `${allocationCoveragePct.toFixed(0)}% allocated`}
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <PoolStat
+              label="Pool received"
+              value={formatCurrency(poolReceived, currency)}
+              hint="Income tagged to Ward Budget"
+            />
+            <PoolStat
+              label="Allocated to orgs"
+              value={formatCurrency(allocatedOut, currency)}
+              hint={`Across ${
+                perOrg.filter((o) => o.id !== wardBudgetOrgId && o.allocated > 0).length
+              } org(s)`}
+            />
+            <PoolStat
+              label="Unallocated"
+              value={formatCurrency(unallocated, currency)}
+              tone={unallocated < 0 ? "danger" : "ok"}
+              hint={
+                unallocated < 0 ? "Allocated more than received" : "Available to plan"
+              }
+            />
+            <PoolStat
+              label="Total inflow"
+              value={formatCurrency(totalInflow, currency)}
+              hint="Pool + income elsewhere"
+            />
+          </div>
+          <div className="mt-3">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 h-2 bg-slate-200 rounded overflow-hidden">
+                <div
+                  className={`h-2 ${
+                    overAllocated
+                      ? "bg-red-500"
+                      : allocationCoveragePct >= 80
+                        ? "bg-amber-500"
+                        : "bg-emerald-500"
+                  }`}
+                  style={{
+                    width: `${Math.min(100, allocationCoveragePct)}%`,
+                  }}
+                />
+              </div>
+              <div className="text-xs text-slate-600 w-16 text-right">
+                {allocationCoveragePct >= 999
+                  ? "—"
+                  : `${allocationCoveragePct.toFixed(0)}%`}
+              </div>
+            </div>
+            {overAllocated && (
+              <div className="mt-2 text-sm text-red-700">
+                ⚠ You have allocated{" "}
+                <strong>{formatCurrency(allocatedOut - poolReceived, currency)}</strong>{" "}
+                more than the pool has received. Reduce allocations or record an
+                additional allotment.
+              </div>
+            )}
+            {!overAllocated && allocationCoveragePct >= 80 && allocationCoveragePct < 999 && (
+              <div className="mt-2 text-sm text-amber-700">
+                You have allocated {allocationCoveragePct.toFixed(0)}% of the pool.
+                Only {formatCurrency(unallocated, currency)} remains to plan.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {alerts.length > 0 && (
         <div className="card p-4 border-l-4 border-amber-500">
@@ -507,6 +641,32 @@ function EmptyHint({ message }: { message: string }) {
   return (
     <div className="grid place-items-center text-sm text-slate-500 py-10">
       {message}
+    </div>
+  );
+}
+
+function PoolStat({
+  label,
+  value,
+  hint,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  tone?: "default" | "ok" | "danger";
+}) {
+  const toneClass =
+    tone === "danger"
+      ? "text-red-600"
+      : tone === "ok"
+        ? "text-slate-900"
+        : "text-slate-900";
+  return (
+    <div className="bg-slate-50 rounded p-3">
+      <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
+      <div className={`text-lg font-semibold ${toneClass}`}>{value}</div>
+      {hint && <div className="text-xs text-slate-500 mt-0.5">{hint}</div>}
     </div>
   );
 }

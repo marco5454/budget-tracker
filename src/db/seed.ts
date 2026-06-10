@@ -1,6 +1,18 @@
 import { db, type Category, type Organization } from "./db";
 
+export const WARD_BUDGET_ORG_NAME = "Ward Budget";
+
 const DEFAULT_ORGS: Omit<Organization, "id">[] = [
+  // The shared pool: where the quarterly allotment from the stake/headquarters
+  // lives before it is allocated out to organizations. Order 0 keeps it pinned
+  // to the top of every dropdown.
+  {
+    name: WARD_BUDGET_ORG_NAME,
+    order: 0,
+    active: true,
+    notes:
+      "Shared pool of money the ward receives from the stake/headquarters. Quarterly allotments and inter-ward transfers should be recorded here. Other organizations' budgets are allocations OUT of this pool.",
+  },
   { name: "Bishopric", order: 1, active: true },
   { name: "Elders Quorum", order: 2, active: true },
   { name: "Relief Society", order: 3, active: true },
@@ -47,4 +59,36 @@ export async function seedIfEmpty(): Promise<void> {
     await db.settings.put({ key: "currency", value: "PHP" });
     await db.settings.put({ key: "wardName", value: "" });
   }
+
+  // One-time migration: existing installs (created before the Ward Budget
+  // pool concept existed) need the Ward Budget org added. Idempotent.
+  const migrated = await db.settings.get("wardBudgetOrgMigrated");
+  if (!migrated) {
+    const existing = await db.organizations
+      .where("name")
+      .equalsIgnoreCase(WARD_BUDGET_ORG_NAME)
+      .first();
+    if (!existing) {
+      await db.organizations.add({
+        name: WARD_BUDGET_ORG_NAME,
+        order: 0,
+        active: true,
+        notes:
+          "Shared pool of money the ward receives from the stake/headquarters. Quarterly allotments and inter-ward transfers should be recorded here.",
+      });
+    }
+    await db.settings.put({ key: "wardBudgetOrgMigrated", value: true });
+  }
+}
+
+/**
+ * Resolve the Ward Budget pool organization. Returns null only if the
+ * user explicitly deleted it (rare, possible if they renamed and removed).
+ */
+export async function getWardBudgetOrgId(): Promise<number | null> {
+  const row = await db.organizations
+    .where("name")
+    .equalsIgnoreCase(WARD_BUDGET_ORG_NAME)
+    .first();
+  return row?.id ?? null;
 }
