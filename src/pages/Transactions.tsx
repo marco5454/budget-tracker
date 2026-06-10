@@ -1,17 +1,21 @@
 import { useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, type Transaction } from "../db/db";
-import { formatCurrency, yearFromDate } from "../utils/format";
+import { formatCurrency, quarterFromDate, yearFromDate } from "../utils/format";
 import Modal from "../components/Modal";
 import TransactionForm from "../components/TransactionForm";
-import { downloadCsv } from "../utils/backup";
+import { downloadCsv, markDataChanged } from "../utils/backup";
 import { useSetting } from "../hooks/useSetting";
+import { useToast } from "../components/Toast";
+import { useConfirm } from "../components/Confirm";
 
 export default function Transactions() {
   const currency = useSetting<string>("currency", "PHP");
   const txns = useLiveQuery(() => db.transactions.toArray(), []);
   const orgs = useLiveQuery(() => db.organizations.orderBy("order").toArray(), []);
   const cats = useLiveQuery(() => db.categories.toArray(), []);
+  const toast = useToast();
+  const confirm = useConfirm();
 
   const [search, setSearch] = useState("");
   const [filterOrg, setFilterOrg] = useState<number | "">("");
@@ -22,16 +26,15 @@ export default function Transactions() {
 
   const [editing, setEditing] = useState<Transaction | undefined>(undefined);
   const [adding, setAdding] = useState(false);
+  const [addDirty, setAddDirty] = useState(false);
+  const [editDirty, setEditDirty] = useState(false);
 
   const filtered = useMemo(() => {
     let list = [...(txns ?? [])];
     if (filterYear !== "") list = list.filter((t) => yearFromDate(t.date) === filterYear);
     if (filterQuarter !== "") {
       const q = Number(filterQuarter);
-      list = list.filter((t) => {
-        const m = new Date(t.date).getMonth();
-        return Math.floor(m / 3) + 1 === q;
-      });
+      list = list.filter((t) => quarterFromDate(t.date) === q);
     }
     if (filterOrg !== "") list = list.filter((t) => t.organizationId === filterOrg);
     if (filterType !== "") list = list.filter((t) => t.type === filterType);
@@ -59,8 +62,20 @@ export default function Transactions() {
 
   const remove = async (id?: number) => {
     if (!id) return;
-    if (!confirm("Delete this transaction? This cannot be undone.")) return;
-    await db.transactions.delete(id);
+    const ok = await confirm({
+      title: "Delete transaction?",
+      message: "This cannot be undone.",
+      tone: "danger",
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
+    try {
+      await db.transactions.delete(id);
+      await markDataChanged();
+      toast.success("Transaction deleted.");
+    } catch (err) {
+      toast.error(`Delete failed: ${(err as Error).message}`);
+    }
   };
 
   const exportFiltered = () => {
@@ -267,16 +282,49 @@ export default function Transactions() {
         </table>
       </div>
 
-      <Modal open={adding} title="Add Transaction" onClose={() => setAdding(false)}>
-        <TransactionForm onSaved={() => setAdding(false)} onCancel={() => setAdding(false)} />
+      <Modal
+        open={adding}
+        title="Add Transaction"
+        onClose={() => {
+          setAdding(false);
+          setAddDirty(false);
+        }}
+        dirty={addDirty}
+      >
+        <TransactionForm
+          onSaved={() => {
+            setAdding(false);
+            setAddDirty(false);
+          }}
+          onCancel={() => {
+            setAdding(false);
+            setAddDirty(false);
+          }}
+          onDirtyChange={setAddDirty}
+        />
       </Modal>
 
-      <Modal open={!!editing} title="Edit Transaction" onClose={() => setEditing(undefined)}>
+      <Modal
+        open={!!editing}
+        title="Edit Transaction"
+        onClose={() => {
+          setEditing(undefined);
+          setEditDirty(false);
+        }}
+        dirty={editDirty}
+      >
         {editing && (
           <TransactionForm
             initial={editing}
-            onSaved={() => setEditing(undefined)}
-            onCancel={() => setEditing(undefined)}
+            onSaved={() => {
+              setEditing(undefined);
+              setEditDirty(false);
+            }}
+            onCancel={() => {
+              setEditing(undefined);
+              setEditDirty(false);
+            }}
+            onDirtyChange={setEditDirty}
           />
         )}
       </Modal>

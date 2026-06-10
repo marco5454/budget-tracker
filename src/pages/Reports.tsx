@@ -2,7 +2,13 @@ import { useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/db";
 import { downloadCsv } from "../utils/backup";
-import { formatCurrency, MONTH_NAMES } from "../utils/format";
+import {
+  formatCurrency,
+  monthIndexFromDate,
+  MONTH_NAMES,
+  quarterFromDate,
+  yearFromDate,
+} from "../utils/format";
 import { useSetting } from "../hooks/useSetting";
 
 export default function Reports() {
@@ -15,7 +21,7 @@ export default function Reports() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
 
-  const yearTxns = (txns ?? []).filter((t) => new Date(t.date).getFullYear() === year);
+  const yearTxns = (txns ?? []).filter((t) => yearFromDate(t.date) === year);
   const yearAllocs = (allocations ?? []).filter((a) => a.year === year);
 
   const orgRows = useMemo(() => {
@@ -34,7 +40,7 @@ export default function Reports() {
             (t) =>
               t.organizationId === o.id &&
               t.type === "expense" &&
-              Math.floor(new Date(t.date).getMonth() / 3) + 1 === q,
+              quarterFromDate(t.date) === q,
           )
           .reduce((s, t) => s + t.amount, 0),
       );
@@ -75,7 +81,7 @@ export default function Reports() {
   const monthlyRows = useMemo(() => {
     const arr = MONTH_NAMES.map((m) => ({ month: m, income: 0, expense: 0 }));
     for (const t of yearTxns) {
-      const i = new Date(t.date).getMonth();
+      const i = monthIndexFromDate(t.date);
       if (t.type === "income") arr[i].income += t.amount;
       else arr[i].expense += t.amount;
     }
@@ -146,7 +152,7 @@ export default function Reports() {
   const years = Array.from(
     new Set([
       now.getFullYear(),
-      ...(txns ?? []).map((t) => new Date(t.date).getFullYear()),
+      ...(txns ?? []).map((t) => yearFromDate(t.date)),
       ...(allocations ?? []).map((a) => a.year),
     ]),
   ).sort((a, b) => b - a);

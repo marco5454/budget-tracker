@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useSetting } from "../hooks/useSetting";
+import BackupReminderBanner from "./BackupReminderBanner";
 
 const NAV = [
   { to: "/", label: "Dashboard", end: true },
@@ -55,6 +56,7 @@ export default function Layout() {
           </div>
         </nav>
       </header>
+      <BackupReminderBanner />
       <main className="flex-1">
         <div className="max-w-7xl mx-auto px-4 py-6">
           <Outlet />

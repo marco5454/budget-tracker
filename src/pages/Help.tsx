@@ -139,7 +139,8 @@ export default function Help() {
           </li>
           <li>
             To restore on another device, use <strong>Import</strong> with mode
-            "Replace" (start fresh) or "Merge" (combine with existing).
+            "Replace" (start fresh — you will be asked to type{" "}
+            <code>REPLACE</code> to confirm) or "Merge" (combine with existing).
           </li>
         </ol>
         <p>Suggested cadence: at least weekly, plus before any major change.</p>
@@ -169,9 +170,46 @@ export default function Help() {
           </li>
           <li>
             Receipts are embedded in your local database. Be mindful when
-            sharing backup files.
+            sharing backup files. Receipt files are limited to{" "}
+            <strong>2 MB</strong> each (PNG, JPG, GIF, WEBP, HEIC, or PDF).
           </li>
         </ul>
+      </Section>
+
+      <Section title="App Lock (Optional PIN/Passphrase)">
+        <p>
+          You can require a PIN or passphrase before the app opens. This is an{" "}
+          <em>access gate</em>, not encryption — anyone with full access to the
+          device's browser data could still read the underlying records, so
+          continue to keep the device itself secured.
+        </p>
+        <ol className="list-decimal pl-6 space-y-1">
+          <li>
+            Go to <strong>Settings → App Lock</strong>.
+          </li>
+          <li>
+            Enter a PIN or passphrase (minimum 4 characters) twice and click{" "}
+            <strong>Enable lock</strong>.
+          </li>
+          <li>
+            From now on, the app will prompt for the PIN before showing any
+            data.
+          </li>
+        </ol>
+        <p>
+          <strong>Important:</strong> if you forget the PIN, there is no
+          recovery. You will need to clear the app's site data and restore from
+          a backup file. Always keep an up-to-date backup.
+        </p>
+      </Section>
+
+      <Section title="Backup Reminders">
+        <p>
+          When you make changes and have not backed up in over 7 days (or
+          ever), an amber <strong>"Backup reminder"</strong> banner appears at
+          the top of the app. Clicking it takes you to Settings to download a
+          fresh backup. You can dismiss the banner for the current session.
+        </p>
       </Section>
 
       <Section title="Installing as an App (PWA)">
@@ -202,7 +240,7 @@ export default function Help() {
           </li>
           <li>
             <strong>Need to reset?</strong> Settings → "Wipe all data" (back up
-            first).
+            first — you will be asked to type <code>WIPE</code> to confirm).
           </li>
         </ul>
       </Section>

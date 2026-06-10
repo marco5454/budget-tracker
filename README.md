@@ -119,8 +119,21 @@ How to back up:
 How to restore:
 
 1. **Settings → Backup & Restore**.
-2. Choose **Replace** (wipe and import) or **Merge** (combine with existing).
+2. Choose **Replace** (wipe and import — you will be asked to type `REPLACE` to confirm) or **Merge** (combine with existing).
 3. Select the JSON file. Done.
+
+If you have changed data and have not backed up in over 7 days (or have never backed up), the app will show an amber **Backup reminder banner** at the top until you download a fresh backup.
+
+---
+
+## Optional App Lock (PIN/Passphrase)
+
+You can require a PIN or passphrase before the app opens.
+
+- **Settings → App Lock → Enable lock**. Choose any PIN/passphrase (4+ characters).
+- The next time the app loads, it will prompt for the PIN.
+- This is an **access gate**, not encryption. It hashes the PIN with PBKDF2 and stores only the hash. Anyone with full access to the browser's storage could still read the underlying data, so keep the device itself secured.
+- If you forget the PIN, there is no recovery path. You'll need to clear the site's data and restore from a backup file. **Always keep an up-to-date backup.**
 
 ---
 

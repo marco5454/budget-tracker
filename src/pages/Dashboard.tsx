@@ -49,6 +49,7 @@ export default function Dashboard() {
     quarterFromDate(now.toISOString()) as 1 | 2 | 3 | 4,
   );
   const [showAdd, setShowAdd] = useState(false);
+  const [addDirty, setAddDirty] = useState(false);
 
   const txns = useLiveQuery(() => db.transactions.toArray(), []);
   const orgs = useLiveQuery(() => db.organizations.orderBy("order").toArray(), []);
@@ -387,8 +388,26 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <Modal open={showAdd} title="Add Transaction" onClose={() => setShowAdd(false)}>
-        <TransactionForm onSaved={() => setShowAdd(false)} onCancel={() => setShowAdd(false)} />
+      <Modal
+        open={showAdd}
+        title="Add Transaction"
+        onClose={() => {
+          setShowAdd(false);
+          setAddDirty(false);
+        }}
+        dirty={addDirty}
+      >
+        <TransactionForm
+          onSaved={() => {
+            setShowAdd(false);
+            setAddDirty(false);
+          }}
+          onCancel={() => {
+            setShowAdd(false);
+            setAddDirty(false);
+          }}
+          onDirtyChange={setAddDirty}
+        />
       </Modal>
     </div>
   );
