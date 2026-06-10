@@ -4,6 +4,27 @@ An offline-first web app to help LDS ward bishopric and clerks track quarterly/a
 
 > **Important:** This app is **supplementary** to the official **MLS / LCR** financial system, which remains the system of record. Always reconcile this tracker with official church records.
 
+**Current version: v1.0.0**
+
+---
+
+## Release Notes
+
+### v1.0.0 — Initial Release
+
+Feature-complete first version. Highlights:
+
+- Dashboard, Transactions, Budget, Templates, Reports, Audit Log, Trash, Settings, Help.
+- PHP-default currency, calendar fiscal year, quarterly + annual budgeting.
+- Year close + carry-over, per-category soft limits, allotment quick-add.
+- CSV import/export, JSON backup/restore (plain and AES-256-GCM encrypted), SHA-256 integrity check.
+- Auto-backup to a chosen folder with read-back verification and retention.
+- Optional PIN/passphrase lock with idle auto-lock and progressive failed-attempt lockout.
+- Audit log (365-day retention), Trash (30-day auto-purge) with 8s undo.
+- Multi-tab safety via BroadcastChannel.
+- Dark mode (auto/light/dark), receipt viewer (image zoom + PDF embed), advanced search with saved searches, keyboard shortcuts, onboarding checklist.
+- PWA installable, fully offline once loaded.
+
 ---
 
 ## Features

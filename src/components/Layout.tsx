@@ -104,7 +104,7 @@ export default function Layout() {
       <footer className="border-t bg-white">
         <div className="max-w-7xl mx-auto px-4 py-3 text-xs text-slate-500 flex flex-wrap gap-2 justify-between">
           <div>
-            Ward Budget Tracker · Supplementary to the official MLS/LCR system.
+            Ward Budget Tracker v1.0.0 · Supplementary to the official MLS/LCR system.
           </div>
           <div>Data is stored only on this device.</div>
         </div>
