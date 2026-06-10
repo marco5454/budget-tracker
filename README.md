@@ -45,34 +45,28 @@ All data is stored only in the browser's IndexedDB on the device running the app
 
 ### Prerequisites
 
-- **Node.js 18+** and **npm 9+**
+- **Node.js 18+** and **npm 9+** ([download](https://nodejs.org/))
 
-### Install
+### One-click start (recommended for everyday use)
 
-```bash
-npm install
-```
+After cloning/copying the project folder onto the machine that will run the app:
 
-### Run in development
+- **Windows:** double-click `start.bat`.
+- **Linux / macOS:** run `./start.sh` from a terminal in the project folder.
 
-```bash
-npm run dev
-```
+The script will (on first run) install dependencies, build the production bundle, start a local server at **http://localhost:4173**, and open the browser. Subsequent runs reuse the existing build, so it starts almost instantly. Press `Ctrl+C` in the window to stop the server.
 
-Open the URL printed in the terminal (default `http://localhost:5173`).
+> Tip: once it's open in Chrome / Edge, click **Install app** in the address bar (or browser menu) to install the PWA. From then on it appears like a normal desktop app and continues to work even if the local server is not running, as long as the same browser profile is used.
 
-### Build for production
+### Manual commands
 
 ```bash
-npm run build
-```
-
-The optimized site is generated in `dist/`.
-
-### Preview the production build
-
-```bash
-npm run preview
+npm install         # first time only
+npm run dev         # development server (hot reload, http://localhost:5173)
+npm run build       # production build into dist/
+npm run serve       # serve the existing dist/ on http://localhost:4173
+npm start           # build + serve in one step
+npm run icons       # regenerate PWA icons from public/favicon.svg
 ```
 
 ---
@@ -81,28 +75,26 @@ npm run preview
 
 This app is a static site. Pick whatever fits your situation.
 
-### Option A — Open directly from disk (simplest, no server)
+### Option A — One-click `start.bat` / `start.sh` (recommended)
+
+See above. Builds + serves locally on the device that runs the app.
+
+### Option B — Open the built `dist/` directly from disk
 
 After running `npm run build`:
 
-1. Copy the `dist/` folder anywhere you like (e.g., a USB drive or Documents folder).
+1. Copy the `dist/` folder anywhere (USB, Documents, network share).
 2. Open `dist/index.html` in a modern browser.
 
-> Note: PWA install and service-worker offline caching work best when served over HTTP(S). Opening via `file://` still works for normal use, but for the best experience use Option B.
+PWA install and full offline caching work best when served over HTTP, so prefer Option A. `file://` still runs fine for casual use.
 
-### Option B — Local self-hosting on the church laptop/PC (recommended)
+### Option C — Self-host on the home / chapel network
 
-After `npm run build`:
+Run `npm run serve` (or `npx serve -s dist -l 4173`) on one machine, then on the other machine open `http://<that-machine-ip>:4173`. Both devices share the *same app code*, but each browser has its own local IndexedDB, so transactions entered on one device do **not** appear on the other. To move data between devices, use the JSON backup/restore (or move on to a multi-user online setup later).
 
-```bash
-npx serve dist
-```
+### Option D — Free online hosting (later, if needed)
 
-Or any other static server (Python, Caddy, nginx). Visit `http://localhost:3000` (or whichever port). This is great for the offline-first PWA experience.
-
-### Option C — Free online hosting (later, if needed)
-
-Drop the `dist/` folder onto Netlify, Vercel, Cloudflare Pages, or GitHub Pages. Each device that opens it has its own local copy of data — to sync between devices, use the JSON backup/restore.
+Drop the `dist/` folder onto Netlify, Vercel, Cloudflare Pages, or GitHub Pages. Same data-isolation caveat as Option C.
 
 ---
 

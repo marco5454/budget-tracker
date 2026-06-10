@@ -2,6 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/db";
 import { downloadBackup, importBackup } from "../utils/backup";
+import {
+  pickAutoBackupFolder,
+  clearAutoBackupFolder,
+  setAutoBackupEnabled,
+  setAutoBackupFrequencyDays,
+  getAutoBackupState,
+  runAutoBackupNow,
+  type AutoBackupState,
+} from "../utils/autoBackup";
 import { setSetting, useSetting } from "../hooks/useSetting";
 import { useToast } from "../components/Toast";
 import { useConfirm } from "../components/Confirm";
@@ -37,6 +46,20 @@ export default function Settings() {
   const [pin1, setPin1] = useState("");
   const [pin2, setPin2] = useState("");
   const [pinSubmitting, setPinSubmitting] = useState(false);
+
+  // Auto-backup state
+  const [autoState, setAutoState] = useState<AutoBackupState | null>(null);
+  const [autoBusy, setAutoBusy] = useState(false);
+  const refreshAutoState = async () => {
+    try {
+      setAutoState(await getAutoBackupState());
+    } catch {
+      // ignore
+    }
+  };
+  useEffect(() => {
+    refreshAutoState();
+  }, []);
 
   const wardDirty = wardDraft !== wardName;
   const currencyDirty = currencyDraft !== currency;
@@ -339,6 +362,159 @@ export default function Settings() {
             Save
           </button>
         </div>
+      </div>
+
+      <div className="card p-4 space-y-4">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <h3 className="font-semibold text-slate-800">Auto-Backup to Folder</h3>
+          {autoState?.supported === false && (
+            <span className="badge bg-amber-100 text-amber-800 border-amber-200">
+              Not supported in this browser
+            </span>
+          )}
+        </div>
+        <p className="text-sm text-slate-600">
+          Automatically write a JSON backup into a folder you choose
+          {" "}(works in Chrome, Edge, and other Chromium-based browsers). When
+          your data has changed and the cadence is due, the next time the app
+          opens it will save a fresh backup file there. You can also click{" "}
+          <em>Backup now</em> at any time.
+        </p>
+
+        {!autoState?.supported ? (
+          <p className="text-sm text-slate-500">
+            Use the manual <strong>Download backup</strong> button below
+            instead, and save the file to a safe location yourself.
+          </p>
+        ) : !autoState?.hasHandle ? (
+          <div>
+            <button
+              className="btn-primary"
+              disabled={autoBusy}
+              onClick={async () => {
+                setAutoBusy(true);
+                try {
+                  await pickAutoBackupFolder();
+                  toast.success("Auto-backup folder selected.");
+                  await refreshAutoState();
+                } catch (err) {
+                  const msg = (err as Error).message || "";
+                  if (!msg.toLowerCase().includes("abort")) {
+                    toast.error(`Could not select folder: ${msg}`);
+                  }
+                } finally {
+                  setAutoBusy(false);
+                }
+              }}
+            >
+              Choose backup folder…
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="text-sm text-slate-700">
+              <div>
+                <strong>Folder:</strong> {autoState.folderName ?? "(unknown)"}
+              </div>
+              <div>
+                <strong>Permission:</strong>{" "}
+                <span
+                  className={
+                    autoState.permission === "granted"
+                      ? "text-green-700"
+                      : "text-amber-700"
+                  }
+                >
+                  {autoState.permission}
+                </span>
+              </div>
+              {autoState.lastAt && (
+                <div>
+                  <strong>Last auto-backup:</strong>{" "}
+                  {new Date(autoState.lastAt).toLocaleString()}
+                </div>
+              )}
+              {autoState.lastError && (
+                <div className="text-red-700">
+                  <strong>Last error:</strong> {autoState.lastError}
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={autoState.enabled}
+                  onChange={async (e) => {
+                    await setAutoBackupEnabled(e.target.checked);
+                    await refreshAutoState();
+                  }}
+                />
+                Enabled
+              </label>
+
+              <div>
+                <label className="label" htmlFor="auto-freq">
+                  Run every (days)
+                </label>
+                <input
+                  id="auto-freq"
+                  type="number"
+                  min={1}
+                  max={30}
+                  className="input w-24"
+                  value={autoState.frequencyDays}
+                  onChange={async (e) => {
+                    const n = Number(e.target.value) || 1;
+                    await setAutoBackupFrequencyDays(n);
+                    await refreshAutoState();
+                  }}
+                />
+              </div>
+
+              <button
+                className="btn btn-secondary"
+                disabled={autoBusy}
+                onClick={async () => {
+                  setAutoBusy(true);
+                  try {
+                    const r = await runAutoBackupNow();
+                    toast.success(`Backup written: ${r.filename}`);
+                    await refreshAutoState();
+                  } catch (err) {
+                    toast.error((err as Error).message);
+                    await refreshAutoState();
+                  } finally {
+                    setAutoBusy(false);
+                  }
+                }}
+              >
+                Backup now
+              </button>
+
+              <button
+                className="btn btn-danger"
+                disabled={autoBusy}
+                onClick={async () => {
+                  const ok = await confirm({
+                    title: "Forget auto-backup folder?",
+                    message:
+                      "The app will stop writing automatic backups. Your existing backup files will not be deleted.",
+                    tone: "danger",
+                    confirmLabel: "Forget folder",
+                  });
+                  if (!ok) return;
+                  await clearAutoBackupFolder();
+                  toast.success("Auto-backup folder cleared.");
+                  await refreshAutoState();
+                }}
+              >
+                Forget folder
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="card p-4 space-y-4">

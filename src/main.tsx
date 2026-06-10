@@ -8,8 +8,11 @@ import { ToastProvider } from "./components/Toast";
 import { ConfirmProvider } from "./components/Confirm";
 import ErrorBoundary from "./components/ErrorBoundary";
 import LockGate from "./components/LockGate";
+import { maybeRunAutoBackup } from "./utils/autoBackup";
 
-seedIfEmpty().catch((err) => console.error("Seed failed:", err));
+seedIfEmpty()
+  .then(() => maybeRunAutoBackup())
+  .catch((err) => console.error("Startup task failed:", err));
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
