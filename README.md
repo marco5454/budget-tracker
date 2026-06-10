@@ -118,6 +118,14 @@ If you have changed data and have not backed up in over 7 days (or have never ba
 
 ---
 
+## Optional Auto-Backup (Chrome / Edge)
+
+In **Settings → Auto-Backup to Folder** you can pick a folder once. The app will then write a fresh JSON backup into that folder automatically — by default once per day, the next time the app opens after the cadence is due. You can also click **Backup now** at any point.
+
+- This requires the File System Access API, which is currently supported in Chrome, Edge, and other Chromium-based desktop browsers. Firefox and Safari users should keep using the manual download flow above.
+- The chosen folder is remembered across sessions (the browser stores the directory handle in IndexedDB). The browser may re-prompt for permission after a long time without use; just click **Backup now** to re-grant.
+- Best practice: choose a folder that is itself synced to a cloud drive (OneDrive / iCloud / Google Drive / Dropbox / Syncthing). That way a fresh backup is automatically replicated off-device.
+
 ## Optional App Lock (PIN/Passphrase)
 
 You can require a PIN or passphrase before the app opens.
