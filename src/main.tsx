@@ -8,6 +8,7 @@ import { ToastProvider } from "./components/Toast";
 import { ConfirmProvider } from "./components/Confirm";
 import ErrorBoundary from "./components/ErrorBoundary";
 import LockGate from "./components/LockGate";
+import DisclaimerGate from "./components/DisclaimerGate";
 import { LockStateProvider } from "./hooks/useLockState";
 import { ThemeProvider } from "./hooks/useTheme";
 import { bootTheme } from "./utils/theme";
@@ -38,9 +39,11 @@ createRoot(document.getElementById("root")!).render(
           <ConfirmProvider>
             <LockStateProvider>
               <LockGate>
-                <HashRouter>
-                  <App />
-                </HashRouter>
+                <DisclaimerGate>
+                  <HashRouter>
+                    <App />
+                  </HashRouter>
+                </DisclaimerGate>
               </LockGate>
             </LockStateProvider>
           </ConfirmProvider>

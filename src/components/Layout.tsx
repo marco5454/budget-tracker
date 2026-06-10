@@ -6,6 +6,7 @@ import MultiTabBanner from "./MultiTabBanner";
 import HeaderThemeToggle from "./HeaderThemeToggle";
 import ShortcutsDialog from "./ShortcutsDialog";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
+import { DISCLAIMER_SHORT } from "../utils/disclaimer";
 
 const NAV = [
   { to: "/", label: "Dashboard", end: true },
@@ -94,6 +95,13 @@ export default function Layout() {
           </div>
         </nav>
       </header>
+      <div
+        role="note"
+        aria-label="Disclaimer"
+        className="bg-amber-100 dark:bg-amber-900/30 border-b border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-100 text-[11px] sm:text-xs px-4 py-1.5 text-center leading-snug no-print"
+      >
+        {DISCLAIMER_SHORT}
+      </div>
       <BackupReminderBanner />
       <MultiTabBanner />
       <main className="flex-1">
@@ -104,7 +112,7 @@ export default function Layout() {
       <footer className="border-t bg-white">
         <div className="max-w-7xl mx-auto px-4 py-3 text-xs text-slate-500 flex flex-wrap gap-2 justify-between">
           <div>
-            Ward Budget Tracker v1.0.0 · Supplementary to the official MLS/LCR system.
+            Ward Budget Tracker v1.0.0 · <strong>Unofficial</strong> · Not affiliated with The Church of Jesus Christ of Latter-day Saints.
           </div>
           <div>Data is stored only on this device.</div>
         </div>

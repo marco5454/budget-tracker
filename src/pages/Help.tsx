@@ -8,12 +8,29 @@ export default function Help() {
         </p>
       </div>
 
+      <div className="bg-amber-100 dark:bg-amber-900/30 border-l-4 border-amber-500 px-4 py-3 rounded">
+        <h2 className="text-base font-bold text-amber-900 dark:text-amber-100 m-0">
+          ⚠ Personal use only — Read first
+        </h2>
+        <p className="text-sm text-amber-900 dark:text-amber-100 mt-2 mb-1">
+          This app is a <strong>personal, unofficial</strong> tracking tool. It
+          is <strong>NOT</strong> an official application of The Church of Jesus
+          Christ of Latter-day Saints, and it is <strong>not affiliated with,
+          endorsed by, or sponsored by</strong> the Church.
+        </p>
+        <p className="text-sm text-amber-900 dark:text-amber-100">
+          The official system of record for ward finances is{" "}
+          <strong>MLS / LCR</strong>. Always reconcile this tracker against
+          MLS/LCR. Do not use this app's exports, screenshots, or printouts as
+          official Church documents.
+        </p>
+      </div>
+
       <Section title="Important: Disclaimer">
         <p>
-          This app is a <strong>supplementary tracker</strong>. It is{" "}
-          <strong>not</strong> a replacement for the official Church
-          Membership/Leader/Local Church (MLS / LCR) financial system, which
-          remains the system of record. Always reconcile with official church
+          This app is a <strong>personal/internal tracker</strong>, not an
+          official Church system, not affiliated with the Church, and not a
+          replacement for MLS/LCR. Always reconcile with official church
           records.
         </p>
         <p>

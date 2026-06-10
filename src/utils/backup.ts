@@ -6,6 +6,7 @@ import {
   sha256Hex,
   type EncryptedBackupEnvelope,
 } from "./crypto";
+import { DISCLAIMER_CSV_LINE, DISCLAIMER_SHORT } from "./disclaimer";
 
 /**
  * Plain (unencrypted) backup file format.
@@ -18,6 +19,11 @@ export interface BackupFile {
   appName: "Ward Budget Tracker";
   version: 1;
   exportedAt: string;
+  /**
+   * Plain-text disclaimer noting the unofficial nature of this app.
+   * Optional for backwards-compatibility with older backups.
+   */
+  disclaimer?: string;
   data: {
     organizations: unknown[];
     categories: unknown[];
@@ -89,6 +95,7 @@ export async function exportBackup(): Promise<BackupFile> {
     appName: "Ward Budget Tracker",
     version: 1,
     exportedAt: new Date().toISOString(),
+    disclaimer: DISCLAIMER_SHORT,
     data,
     integrity: { algorithm: "SHA-256", sha256 },
   };
@@ -505,7 +512,11 @@ export function downloadCsv(
 ): void {
   // BOM helps Excel detect UTF-8.
   const bom = "\uFEFF";
-  const lines = [headers.map(csvEscape).join(",")];
+  // Disclaimer "comment" line at the top so anyone opening the CSV sees it.
+  const lines = [
+    DISCLAIMER_CSV_LINE,
+    headers.map(csvEscape).join(","),
+  ];
   for (const row of rows) {
     lines.push(row.map(csvEscape).join(","));
   }

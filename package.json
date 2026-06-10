@@ -2,7 +2,7 @@
   "name": "ward-budget-tracker",
   "private": true,
   "version": "1.0.0",
-  "description": "Offline-first budget and expense tracker for LDS wards",
+  "description": "Unofficial personal/internal tracker for ward budgets and expenses. Not affiliated with The Church of Jesus Christ of Latter-day Saints. Not a replacement for MLS/LCR.",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "icons": "node scripts/generate-icons.mjs",
+    "package-portable": "node scripts/package-portable.mjs",
     "serve": "serve -s dist -l 4173",
     "start": "npm run build && npm run serve"
   },

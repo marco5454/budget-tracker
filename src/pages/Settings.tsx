@@ -27,6 +27,7 @@ import { broadcastDataChanged } from "../utils/broadcast";
 import YearManagementCard from "../components/YearManagementCard";
 import CategoryLimitsCard from "../components/CategoryLimitsCard";
 import ThemeCard from "../components/ThemeCard";
+import AboutCard from "../components/AboutCard";
 
 export default function Settings() {
   const wardName = useSetting<string>("wardName", "");
@@ -466,6 +467,8 @@ export default function Settings() {
           Configure ward info, organizations, categories, security, and backups.
         </p>
       </div>
+
+      <AboutCard />
 
       <div className="card p-4 space-y-4">
         <div className="flex items-center justify-between">

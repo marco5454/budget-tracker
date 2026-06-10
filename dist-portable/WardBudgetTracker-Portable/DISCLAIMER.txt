@@ -1,0 +1,15 @@
+WARD BUDGET TRACKER — UNOFFICIAL DISCLAIMER
+
+This software is a personal, unofficial tracking tool. It is NOT an official
+application of The Church of Jesus Christ of Latter-day Saints, and it is
+NOT affiliated with, endorsed by, or sponsored by the Church.
+
+The official system of record for ward finances is MLS / LCR. Always
+reconcile any data in this app against MLS/LCR. Do not use this app's
+exports, screenshots, or printouts as official Church documents.
+
+All data is stored locally on the device. Treat backup files and exports
+as confidential financial records. Keep the device secured.
+
+Please do not redistribute this app under any branding that could imply
+Church endorsement.

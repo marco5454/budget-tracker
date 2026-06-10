@@ -1,8 +1,14 @@
-# Ward Budget Tracker
+# Ward Budget Tracker (Unofficial)
 
-An offline-first web app to help LDS ward bishopric and clerks track quarterly/annual budget allocations and expenses.
+> ## ⚠ Important — Read first
+>
+> This app is a **personal, unofficial** tracking tool. It is **NOT** an official application of The Church of Jesus Christ of Latter-day Saints, and it is **not affiliated with, endorsed by, or sponsored by** the Church.
+>
+> The official system of record for ward finances is **MLS / LCR**. Always reconcile any data in this app against MLS/LCR. Do not use this app's exports, screenshots, or printouts as official Church documents.
+>
+> Built for the personal convenience of an individual bishopric/clerk on their own device. Treat all backup files and exports as confidential financial records.
 
-> **Important:** This app is **supplementary** to the official **MLS / LCR** financial system, which remains the system of record. Always reconcile this tracker with official church records.
+An offline-first web app to help a ward bishop or clerk privately track quarterly/annual budget allocations and expenses, alongside the official MLS/LCR system.
 
 **Current version: v1.0.0**
 
@@ -95,13 +101,34 @@ The script will (on first run) install dependencies, build the production bundle
 ### Manual commands
 
 ```bash
-npm install         # first time only
-npm run dev         # development server (hot reload, http://localhost:5173)
-npm run build       # production build into dist/
-npm run serve       # serve the existing dist/ on http://localhost:4173
-npm start           # build + serve in one step
-npm run icons       # regenerate PWA icons from public/favicon.svg
+npm install              # first time only
+npm run dev              # development server (hot reload, http://localhost:5173)
+npm run build            # production build into dist/
+npm run serve            # serve the existing dist/ on http://localhost:4173
+npm start                # build + serve in one step
+npm run icons            # regenerate PWA icons from public/favicon.svg
+npm run package-portable # build + create a USB-ready portable folder & zip
 ```
+
+---
+
+## Portable / On-the-Go Setup (USB stick)
+
+If you want to carry the app between the bishop's PC and a laptop without installing anything, use the portable bundle:
+
+```bash
+npm run package-portable
+```
+
+This produces `dist-portable/WardBudgetTracker-Portable/` (about 1 MB) and a matching `.zip` (~300 KB) containing:
+
+- The built app
+- Cross-platform launchers (`Launch-Windows.bat`, `Launch-Linux.sh`, `Launch-macOS.command`)
+- A README and DISCLAIMER.txt
+
+Copy the folder to a USB stick and double-click the launcher for that OS — the app opens in the default browser, fully offline, no Node, no installer.
+
+**See [`PORTABLE-SETUP.md`](./PORTABLE-SETUP.md)** for the full walkthrough including how to move data between computers using the backup feature.
 
 ---
 

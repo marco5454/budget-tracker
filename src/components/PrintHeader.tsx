@@ -25,7 +25,22 @@ export default function PrintHeader({ title, subtitle }: Props) {
           </div>
         )}
         <div style={{ fontSize: "9pt", color: "#666", marginTop: 4 }}>
-          Generated {now} · Supplementary tracker (not MLS/LCR)
+          Generated {now}
+        </div>
+        <div
+          style={{
+            marginTop: 6,
+            padding: "4px 6px",
+            border: "1px solid #999",
+            fontSize: "8.5pt",
+            fontWeight: 600,
+            color: "#000",
+            background: "#fff7cc",
+          }}
+        >
+          UNOFFICIAL · Personal/internal tracker. Not affiliated with The Church
+          of Jesus Christ of Latter-day Saints. Not a replacement for MLS/LCR.
+          Always reconcile with the official record.
         </div>
       </div>
     </div>

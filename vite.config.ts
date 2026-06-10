@@ -10,10 +10,10 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.svg", "favicon-32.png", "icons/apple-touch-icon.png"],
       manifest: {
-        name: "Ward Budget Tracker",
+        name: "Ward Budget Tracker (Unofficial)",
         short_name: "Ward Budget",
         description:
-          "Offline-first budget and expense tracker for LDS wards (supplementary to MLS/LCR).",
+          "Personal/internal tool for tracking ward budgets and expenses. Unofficial — not affiliated with or endorsed by The Church of Jesus Christ of Latter-day Saints. Not a replacement for MLS/LCR.",
         theme_color: "#006fc6",
         background_color: "#ffffff",
         display: "standalone",
