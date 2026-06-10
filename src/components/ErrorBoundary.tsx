@@ -15,7 +15,6 @@ export default class ErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    // eslint-disable-next-line no-console
     console.error("App error:", error, info);
   }
 

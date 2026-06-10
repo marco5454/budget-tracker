@@ -7,9 +7,8 @@ import { yearFromDate } from "./format";
 
 const CLOSED_YEARS_KEY = "closedYears";
 
-/**
- * Read the list of years currently marked as closed. Stored as a sorted
- * array of numbers in the `settings` table under `closedYears`.
+/** Read the list of years currently marked as closed. Stored as a sorted
+ *  array of numbers in the `settings` table under `closedYears`.
  */
 export async function getClosedYears(): Promise<number[]> {
   const row = await db.settings.get(CLOSED_YEARS_KEY);
@@ -18,17 +17,6 @@ export async function getClosedYears(): Promise<number[]> {
   return [...new Set(v.filter((x) => typeof x === "number" && Number.isFinite(x)))].sort(
     (a, b) => a - b,
   );
-}
-
-/** Synchronous variant for use inside selectors that already have the array. */
-export function isYearClosedIn(years: number[], year: number): boolean {
-  return years.includes(year);
-}
-
-/** Fetches and tests in one go. */
-export async function isYearClosed(year: number): Promise<boolean> {
-  const list = await getClosedYears();
-  return list.includes(year);
 }
 
 async function persistClosedYears(list: number[]): Promise<void> {

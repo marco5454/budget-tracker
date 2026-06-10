@@ -315,7 +315,6 @@ export default function Settings() {
         toast.warning(
           `${result.warnings.length} row(s) skipped due to invalid data. See console for details.`,
         );
-        // eslint-disable-next-line no-console
         console.warn("Backup import warnings:", result.warnings);
       }
     } catch (err) {

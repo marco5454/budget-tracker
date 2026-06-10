@@ -15,6 +15,7 @@ import { broadcastDataChanged } from "../utils/broadcast";
 import { restoreAllocation, softDeleteAllocation } from "../utils/trash";
 import { useClosedYears } from "../hooks/useClosedYears";
 import { WARD_BUDGET_ORG_NAME } from "../db/seed";
+import PoolStat from "../components/PoolStat";
 
 type QuarterChoice = 0 | 1 | 2 | 3 | 4;
 // "all" = show every quarter side-by-side. number = single-period view as before.
@@ -483,7 +484,7 @@ export default function Budget() {
             <PoolStat
               label="Unallocated"
               value={formatCurrency(unallocated, currency)}
-              tone={unallocated < 0 ? "danger" : "ok"}
+              tone={unallocated < 0 ? "danger" : "default"}
               hint={
                 unallocated < 0
                   ? "Allocated more than received"
@@ -985,26 +986,3 @@ function AllQuartersCell({
   );
 }
 
-function PoolStat({
-  label,
-  value,
-  hint,
-  tone = "default",
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-  tone?: "default" | "ok" | "danger";
-}) {
-  const toneClass =
-    tone === "danger" ? "text-red-600" : "text-slate-900";
-  return (
-    <div className="bg-slate-50 rounded p-3">
-      <div className="text-xs uppercase tracking-wide text-slate-500">
-        {label}
-      </div>
-      <div className={`text-lg font-semibold ${toneClass}`}>{value}</div>
-      {hint && <div className="text-xs text-slate-500 mt-0.5">{hint}</div>}
-    </div>
-  );
-}

@@ -223,6 +223,3 @@ class WardBudgetDB extends Dexie {
 }
 
 export const db = new WardBudgetDB();
-
-/** Current schema version that the app code targets. */
-export const SCHEMA_VERSION = 4;

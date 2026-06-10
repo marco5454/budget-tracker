@@ -28,13 +28,6 @@ export function formatCurrency(
   }
 }
 
-export function formatNumber(amount: number): string {
-  return new Intl.NumberFormat("en-PH", {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 2,
-  }).format(amount);
-}
-
 export function todayIso(): string {
   const now = new Date();
   const y = now.getFullYear();
@@ -58,11 +51,6 @@ export function yearFromDate(dateIso: string): number {
 
 export function monthIndexFromDate(dateIso: string): number {
   return parseLocalDate(dateIso).getMonth();
-}
-
-export function quarterMonths(q: 1 | 2 | 3 | 4): number[] {
-  const start = (q - 1) * 3;
-  return [start, start + 1, start + 2];
 }
 
 export const MONTH_NAMES = [

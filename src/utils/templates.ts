@@ -8,10 +8,6 @@ export type NewTemplateInput = Omit<
   "id" | "order" | "createdAt" | "updatedAt"
 >;
 
-export async function listTemplates(): Promise<TransactionTemplate[]> {
-  return db.templates.orderBy("order").toArray();
-}
-
 export async function addTemplate(input: NewTemplateInput): Promise<number> {
   const now = nowIso();
   const max = await db.templates.toArray();
@@ -46,10 +42,8 @@ export async function deleteTemplate(id: number, name?: string): Promise<void> {
 export async function duplicateTemplate(id: number): Promise<number | undefined> {
   const t = await db.templates.get(id);
   if (!t) return undefined;
-  const { id: _drop, createdAt: _c, updatedAt: _u, order: _o, ...rest } = t;
-  void _drop;
-  void _c;
-  void _u;
-  void _o;
+  // Strip auto-managed fields; addTemplate will assign fresh values.
+  const { id: _id, createdAt: _ca, updatedAt: _ua, order: _ord, ...rest } = t;
+  void _id; void _ca; void _ua; void _ord;
   return addTemplate({ ...rest, name: `${rest.name} (copy)` });
 }

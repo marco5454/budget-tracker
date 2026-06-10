@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLockState } from "./useLockState";
 
-export interface ShortcutBinding {
+interface ShortcutBinding {
   combo: string;
   description: string;
 }
@@ -11,7 +11,7 @@ export interface ShortcutBinding {
  * Common shortcuts available across the app. Used by both the runtime
  * handler and the help dialog so the lists never drift apart.
  */
-export const SHORTCUTS: ShortcutBinding[] = [
+export const SHORTCUTS: readonly ShortcutBinding[] = [
   { combo: "G then D", description: "Go to Dashboard" },
   { combo: "G then T", description: "Go to Transactions" },
   { combo: "G then B", description: "Go to Budget" },

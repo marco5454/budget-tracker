@@ -30,6 +30,7 @@ import AllotmentQuickAdd from "../components/AllotmentQuickAdd";
 import AttentionWidget from "../components/AttentionWidget";
 import PrintHeader from "../components/PrintHeader";
 import OnboardingChecklist from "../components/OnboardingChecklist";
+import PoolStat from "../components/PoolStat";
 import { useSetting } from "../hooks/useSetting";
 import { useClosedYears } from "../hooks/useClosedYears";
 import { WARD_BUDGET_ORG_NAME } from "../db/seed";
@@ -356,7 +357,7 @@ export default function Dashboard() {
             <PoolStat
               label="Unallocated"
               value={formatCurrency(unallocated, currency)}
-              tone={unallocated < 0 ? "danger" : "ok"}
+              tone={unallocated < 0 ? "danger" : "default"}
               hint={
                 unallocated < 0 ? "Allocated more than received" : "Available to plan"
               }
@@ -645,28 +646,3 @@ function EmptyHint({ message }: { message: string }) {
   );
 }
 
-function PoolStat({
-  label,
-  value,
-  hint,
-  tone = "default",
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-  tone?: "default" | "ok" | "danger";
-}) {
-  const toneClass =
-    tone === "danger"
-      ? "text-red-600"
-      : tone === "ok"
-        ? "text-slate-900"
-        : "text-slate-900";
-  return (
-    <div className="bg-slate-50 rounded p-3">
-      <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
-      <div className={`text-lg font-semibold ${toneClass}`}>{value}</div>
-      {hint && <div className="text-xs text-slate-500 mt-0.5">{hint}</div>}
-    </div>
-  );
-}

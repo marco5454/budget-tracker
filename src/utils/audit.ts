@@ -11,10 +11,7 @@ export const STANDARD_ACTORS = [
   "Other",
 ] as const;
 
-export type StandardActor = (typeof STANDARD_ACTORS)[number];
-
 const ACTOR_KEY = "currentActor";
-const FREEFORM_KEY = "currentActorOther";
 const RETENTION_DAYS = 365;
 
 /** Read the active actor from settings. Empty string if not yet picked. */
@@ -23,20 +20,6 @@ export async function getCurrentActor(): Promise<string> {
   const v = row?.value;
   if (typeof v === "string" && v.trim()) return v.trim();
   return "";
-}
-
-export async function setCurrentActor(name: string): Promise<void> {
-  const trimmed = name.trim();
-  await db.settings.put({ key: ACTOR_KEY, value: trimmed });
-}
-
-export async function setActorFreeform(name: string): Promise<void> {
-  await db.settings.put({ key: FREEFORM_KEY, value: name.trim() });
-}
-
-export async function getActorFreeform(): Promise<string> {
-  const row = await db.settings.get(FREEFORM_KEY);
-  return typeof row?.value === "string" ? row.value : "";
 }
 
 /** Append a single audit log entry. Never throws — audit failures shouldn't break the app. */
@@ -74,9 +57,4 @@ export async function pruneAuditLog(retentionDays = RETENTION_DAYS): Promise<num
     console.warn("Audit prune failed:", err);
     return 0;
   }
-}
-
-/** Recent activity for the dashboard / audit page. */
-export async function recentAudit(limit = 50): Promise<AuditLogEntry[]> {
-  return db.auditLog.orderBy("at").reverse().limit(limit).toArray();
 }

@@ -62,6 +62,3 @@ export function subscribeDataChanges(handler: (e: DataEvent) => void): () => voi
   ch.addEventListener("message", onMsg);
   return () => ch.removeEventListener("message", onMsg);
 }
-
-/** Tab id for this page load, exposed for diagnostics. */
-export const CURRENT_TAB_ID = TAB_ID;

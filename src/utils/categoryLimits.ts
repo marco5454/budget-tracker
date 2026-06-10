@@ -9,13 +9,6 @@ export type NewCategoryLimitInput = Omit<
   "id" | "createdAt" | "updatedAt"
 >;
 
-export async function listCategoryLimits(year?: number): Promise<CategoryLimit[]> {
-  if (typeof year === "number") {
-    return db.categoryLimits.where("year").equals(year).toArray();
-  }
-  return db.categoryLimits.toArray();
-}
-
 /**
  * Insert or update the (year, organizationId, categoryId) limit. The
  * compound unique index makes this an upsert: if a row already exists,
