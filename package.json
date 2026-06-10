@@ -8,7 +8,10 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "icons": "node scripts/generate-icons.mjs",
+    "serve": "serve -s dist -l 4173",
+    "start": "npm run build && npm run serve"
   },
   "dependencies": {
     "dexie": "^4.0.8",
