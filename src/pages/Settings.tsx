@@ -22,6 +22,8 @@ import { useToast } from "../components/Toast";
 import { useConfirm } from "../components/Confirm";
 import { createLockHash, type LockHash } from "../utils/crypto";
 import { notifyLockSettingsChanged } from "../hooks/useLockState";
+import { logAudit, STANDARD_ACTORS } from "../utils/audit";
+import { broadcastDataChanged } from "../utils/broadcast";
 
 export default function Settings() {
   const wardName = useSetting<string>("wardName", "");
@@ -30,6 +32,8 @@ export default function Settings() {
   const lockHash = useSetting<LockHash | null>("lockHash", null);
   const idleMinutesSetting = useSetting<number>("lockIdleMinutes", 10);
   const lockOnHideSetting = useSetting<boolean>("lockOnTabHide", true);
+  const currentActorSetting = useSetting<string>("currentActor", "");
+  const currentActorOtherSetting = useSetting<string>("currentActorOther", "");
 
   const orgs = useLiveQuery(() => db.organizations.orderBy("order").toArray(), []);
   const cats = useLiveQuery(() => db.categories.toArray(), []);
@@ -42,6 +46,12 @@ export default function Settings() {
   const [currencyDraft, setCurrencyDraft] = useState(currency);
   useEffect(() => setWardDraft(wardName), [wardName]);
   useEffect(() => setCurrencyDraft(currency), [currency]);
+
+  // Actor draft (Bishop/Clerk/Asst. Clerk/Other)
+  const [actorDraft, setActorDraft] = useState<string>(currentActorSetting || "");
+  const [actorOtherDraft, setActorOtherDraft] = useState<string>(currentActorOtherSetting || "");
+  useEffect(() => setActorDraft(currentActorSetting || ""), [currentActorSetting]);
+  useEffect(() => setActorOtherDraft(currentActorOtherSetting || ""), [currentActorOtherSetting]);
 
   const [orgDraft, setOrgDraft] = useState<Record<number, string>>({});
   const [newOrg, setNewOrg] = useState("");
@@ -77,11 +87,49 @@ export default function Settings() {
 
   const wardDirty = wardDraft !== wardName;
   const currencyDirty = currencyDraft !== currency;
+  const actorDirty =
+    actorDraft !== (currentActorSetting || "") ||
+    actorOtherDraft !== (currentActorOtherSetting || "");
+
+  const saveActor = async () => {
+    if (!actorDraft) {
+      toast.error("Choose an actor.");
+      return;
+    }
+    if (actorDraft === "Other" && !actorOtherDraft.trim()) {
+      toast.error("Enter the actor's name for 'Other'.");
+      return;
+    }
+    try {
+      await setSetting("currentActor", actorDraft);
+      await setSetting(
+        "currentActorOther",
+        actorDraft === "Other" ? actorOtherDraft.trim() : "",
+      );
+      await logAudit(
+        "setting",
+        "update",
+        "currentActor",
+        `Active actor set to ${actorDraft === "Other" ? actorOtherDraft.trim() : actorDraft}`,
+      );
+      broadcastDataChanged();
+      toast.success("Active actor saved.");
+    } catch (err) {
+      toast.error(`Save failed: ${(err as Error).message}`);
+    }
+  };
 
   const saveWardInfo = async () => {
     try {
-      if (wardDirty) await setSetting("wardName", wardDraft);
-      if (currencyDirty) await setSetting("currency", currencyDraft);
+      if (wardDirty) {
+        await setSetting("wardName", wardDraft);
+        await logAudit("setting", "update", "wardName", `Changed ward name → ${wardDraft || "(empty)"}`);
+      }
+      if (currencyDirty) {
+        await setSetting("currency", currencyDraft);
+        await logAudit("setting", "update", "currency", `Changed currency → ${currencyDraft}`);
+      }
+      broadcastDataChanged();
       toast.success("Ward info saved.");
     } catch (err) {
       toast.error(`Save failed: ${(err as Error).message}`);
@@ -104,6 +152,8 @@ export default function Settings() {
     }
     try {
       await db.organizations.update(id, { name });
+      await logAudit("organization", "update", id, `Renamed organization → ${name}`);
+      broadcastDataChanged();
       cancelOrgEdit(id);
       toast.success("Organization renamed.");
     } catch (err) {
@@ -116,7 +166,9 @@ export default function Settings() {
     if (!name) return;
     try {
       const maxOrder = (orgs ?? []).reduce((m, o) => Math.max(m, o.order), 0);
-      await db.organizations.add({ name, order: maxOrder + 1, active: true });
+      const id = await db.organizations.add({ name, order: maxOrder + 1, active: true });
+      await logAudit("organization", "create", id, `Added organization '${name}'`);
+      broadcastDataChanged();
       setNewOrg("");
       toast.success("Organization added.");
     } catch (err) {
@@ -126,6 +178,8 @@ export default function Settings() {
   const toggleOrg = async (id: number, active: boolean) => {
     try {
       await db.organizations.update(id, { active });
+      await logAudit("organization", "update", id, active ? "Activated organization" : "Deactivated organization");
+      broadcastDataChanged();
     } catch (err) {
       toast.error(`Update failed: ${(err as Error).message}`);
     }
@@ -147,6 +201,8 @@ export default function Settings() {
     if (!ok) return;
     try {
       await db.organizations.delete(id);
+      await logAudit("organization", "delete", id, `Deleted organization '${name}'`);
+      broadcastDataChanged();
       toast.success("Organization deleted.");
     } catch (err) {
       toast.error(`Delete failed: ${(err as Error).message}`);
@@ -157,11 +213,14 @@ export default function Settings() {
     const name = newCat.trim();
     if (!name) return;
     try {
-      await db.categories.add({
+      const orgId = newCatOrg === "" ? null : Number(newCatOrg);
+      const id = await db.categories.add({
         name,
-        organizationId: newCatOrg === "" ? null : Number(newCatOrg),
+        organizationId: orgId,
         active: true,
       });
+      await logAudit("category", "create", id, `Added category '${name}'`);
+      broadcastDataChanged();
       setNewCat("");
       toast.success("Category added.");
     } catch (err) {
@@ -171,6 +230,8 @@ export default function Settings() {
   const toggleCat = async (id: number, active: boolean) => {
     try {
       await db.categories.update(id, { active });
+      await logAudit("category", "update", id, active ? "Activated category" : "Deactivated category");
+      broadcastDataChanged();
     } catch (err) {
       toast.error(`Update failed: ${(err as Error).message}`);
     }
@@ -192,6 +253,8 @@ export default function Settings() {
     if (!ok) return;
     try {
       await db.categories.delete(id);
+      await logAudit("category", "delete", id, `Deleted category '${name}'`);
+      broadcastDataChanged();
       toast.success("Category deleted.");
     } catch (err) {
       toast.error(`Delete failed: ${(err as Error).message}`);
@@ -239,7 +302,7 @@ export default function Settings() {
       const result = await importBackup(file, importMode, passphrase);
       const counts = result.imported;
       toast.success(
-        `Imported${result.encrypted ? " (decrypted)" : ""}: ${counts.transactions} txns, ${counts.allocations} allocations, ${counts.organizations} orgs, ${counts.categories} cats.`,
+        `Imported${result.encrypted ? " (decrypted)" : ""}: ${counts.transactions} txns, ${counts.allocations} allocations, ${counts.organizations} orgs, ${counts.categories} cats, ${counts.auditLog} audit entries.`,
       );
       if (result.integrityChecked && result.integrityOk) {
         toast.info("Integrity check passed.");
@@ -299,14 +362,17 @@ export default function Settings() {
     try {
       await db.transaction(
         "rw",
-        [db.organizations, db.categories, db.transactions, db.allocations, db.settings],
+        [db.organizations, db.categories, db.transactions, db.allocations, db.settings, db.auditLog],
         async () => {
+          // Log the wipe BEFORE we clear, then clear (auditLog is also cleared as part of WIPE).
+          await logAudit("setting", "delete", "all", "Wiped all data");
           await Promise.all([
             db.transactions.clear(),
             db.allocations.clear(),
             db.categories.clear(),
             db.organizations.clear(),
             db.settings.clear(),
+            db.auditLog.clear(),
           ]);
         },
       );
@@ -338,6 +404,7 @@ export default function Settings() {
     try {
       const hash = await createLockHash(pin1);
       await setSetting("lockHash", hash);
+      await logAudit("setting", "update", "lockHash", "Enabled app lock");
       notifyLockSettingsChanged();
       setPin1("");
       setPin2("");
@@ -359,6 +426,7 @@ export default function Settings() {
     if (!ok) return;
     try {
       await db.settings.delete("lockHash");
+      await logAudit("setting", "delete", "lockHash", "Removed app lock");
       notifyLockSettingsChanged();
       toast.success("App lock removed.");
     } catch (err) {
@@ -446,6 +514,78 @@ export default function Settings() {
             className="btn-primary"
             disabled={!wardDirty && !currencyDirty}
             onClick={saveWardInfo}
+          >
+            Save
+          </button>
+        </div>
+      </div>
+
+      <div className="card p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-slate-800">Active Actor</h3>
+          {actorDirty && <span className="text-xs text-amber-700">Unsaved changes</span>}
+        </div>
+        <p className="text-xs text-slate-500">
+          Records who is making changes in the audit log. Update this when a different person uses the
+          app.
+        </p>
+        {!currentActorSetting && (
+          <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            No active actor selected yet. Pick one so audit entries identify who made the change.
+          </div>
+        )}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label htmlFor="actor-select" className="label">
+              Actor
+            </label>
+            <select
+              id="actor-select"
+              className="input"
+              value={actorDraft}
+              onChange={(e) => setActorDraft(e.target.value)}
+            >
+              <option value="">— Select —</option>
+              {STANDARD_ACTORS.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
+          </div>
+          {actorDraft === "Other" && (
+            <div>
+              <label htmlFor="actor-other" className="label">
+                Name (Other)
+              </label>
+              <input
+                id="actor-other"
+                className="input"
+                value={actorOtherDraft}
+                onChange={(e) => setActorOtherDraft(e.target.value)}
+                placeholder="e.g. Bro. Smith"
+                maxLength={80}
+              />
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            className="btn btn-secondary"
+            disabled={!actorDirty}
+            onClick={() => {
+              setActorDraft(currentActorSetting || "");
+              setActorOtherDraft(currentActorOtherSetting || "");
+            }}
+          >
+            Reset
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={!actorDirty}
+            onClick={saveActor}
           >
             Save
           </button>

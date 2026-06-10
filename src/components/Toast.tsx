@@ -11,19 +11,30 @@ import {
 
 export type ToastTone = "success" | "error" | "info" | "warning";
 
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 export interface Toast {
   id: number;
   message: string;
   tone: ToastTone;
   duration: number;
+  action?: ToastAction;
+}
+
+export interface ShowOptions {
+  duration?: number;
+  action?: ToastAction;
 }
 
 interface ToastContextValue {
-  show: (message: string, tone?: ToastTone, duration?: number) => void;
-  success: (message: string, duration?: number) => void;
-  error: (message: string, duration?: number) => void;
-  info: (message: string, duration?: number) => void;
-  warning: (message: string, duration?: number) => void;
+  show: (message: string, tone?: ToastTone, opts?: ShowOptions) => void;
+  success: (message: string, opts?: ShowOptions) => void;
+  error: (message: string, opts?: ShowOptions) => void;
+  info: (message: string, opts?: ShowOptions) => void;
+  warning: (message: string, opts?: ShowOptions) => void;
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
@@ -42,9 +53,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const show = useCallback(
-    (message: string, tone: ToastTone = "info", duration = 3000) => {
+    (message: string, tone: ToastTone = "info", opts?: ShowOptions) => {
       const id = nextId++;
-      setToasts((cur) => [...cur, { id, message, tone, duration }]);
+      const duration = opts?.duration ?? 3000;
+      setToasts((cur) => [
+        ...cur,
+        { id, message, tone, duration, action: opts?.action },
+      ]);
       const handle = setTimeout(() => remove(id), duration);
       timeouts.current.set(id, handle);
     },
@@ -54,10 +69,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const value = useMemo<ToastContextValue>(
     () => ({
       show,
-      success: (m, d) => show(m, "success", d),
-      error: (m, d) => show(m, "error", d ?? 5000),
-      info: (m, d) => show(m, "info", d),
-      warning: (m, d) => show(m, "warning", d ?? 4500),
+      success: (m, o) => show(m, "success", o),
+      error: (m, o) => show(m, "error", { duration: 5000, ...o }),
+      info: (m, o) => show(m, "info", o),
+      warning: (m, o) => show(m, "warning", { duration: 4500, ...o }),
     }),
     [show],
   );
@@ -104,6 +119,21 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               }`}
             />
             <div className="flex-1 text-slate-800">{t.message}</div>
+            {t.action && (
+              <button
+                type="button"
+                className="text-brand-700 hover:underline font-semibold whitespace-nowrap"
+                onClick={() => {
+                  try {
+                    t.action!.onClick();
+                  } finally {
+                    remove(t.id);
+                  }
+                }}
+              >
+                {t.action.label}
+              </button>
+            )}
             <button
               type="button"
               className="text-slate-400 hover:text-slate-700"

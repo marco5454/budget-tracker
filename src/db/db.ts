@@ -40,6 +40,8 @@ export interface Transaction {
   /** ISO timestamp of creation */
   createdAt: string;
   updatedAt: string;
+  /** Soft-delete marker. ISO timestamp when item moved to Trash. Empty string when not deleted (Dexie can't index null). */
+  deletedAt?: string;
 }
 
 export interface Allocation {
@@ -50,11 +52,43 @@ export interface Allocation {
   organizationId: number;
   amount: number;
   notes?: string;
+  /** Soft-delete marker. ISO timestamp when item moved to Trash. */
+  deletedAt?: string;
 }
 
 export interface Setting {
   key: string;
   value: unknown;
+}
+
+/**
+ * Audit log entry. Captures every create / update / delete on the main tables
+ * plus settings changes. Used to provide a recent-activity view and a forensic
+ * trail for clerks. Auto-pruned after 365 days at startup.
+ */
+export type AuditEntity =
+  | "transaction"
+  | "allocation"
+  | "organization"
+  | "category"
+  | "setting";
+
+export type AuditAction = "create" | "update" | "delete" | "restore" | "purge";
+
+export interface AuditLogEntry {
+  id?: number;
+  /** ISO timestamp */
+  at: string;
+  /** Who made the change (free-form, but seeded from a small list) */
+  actor: string;
+  entity: AuditEntity;
+  action: AuditAction;
+  /** id of the affected row (or settings key) */
+  targetId: string | number;
+  /** Short human label, e.g. "EQ activity 250.00" or "Updated: Relief Society allocation Q2" */
+  summary: string;
+  /** Optional structured detail (kept small) */
+  details?: Record<string, unknown>;
 }
 
 class WardBudgetDB extends Dexie {
@@ -63,18 +97,58 @@ class WardBudgetDB extends Dexie {
   transactions!: Table<Transaction, number>;
   allocations!: Table<Allocation, number>;
   settings!: Table<Setting, string>;
+  auditLog!: Table<AuditLogEntry, number>;
 
   constructor() {
     super("WardBudgetDB");
+    // v1 — original schema. Kept so existing installs upgrade cleanly.
     this.version(1).stores({
       organizations: "++id, name, order, active",
       categories: "++id, name, organizationId, active",
       transactions:
         "++id, date, type, organizationId, categoryId, status, createdAt",
-      allocations: "++id, [year+quarter+organizationId], year, quarter, organizationId",
+      allocations:
+        "++id, [year+quarter+organizationId], year, quarter, organizationId",
       settings: "key",
     });
+    // v2 — adds:
+    //   - auditLog table (indexed by at + entity + action)
+    //   - deletedAt index on transactions and allocations (soft-delete / Trash)
+    // The upgrade function backfills deletedAt='' on existing rows so they show
+    // up correctly in indexed queries that filter by deletedAt.
+    this.version(2)
+      .stores({
+        organizations: "++id, name, order, active",
+        categories: "++id, name, organizationId, active",
+        transactions:
+          "++id, date, type, organizationId, categoryId, status, createdAt, deletedAt",
+        allocations:
+          "++id, [year+quarter+organizationId], year, quarter, organizationId, deletedAt",
+        settings: "key",
+        auditLog: "++id, at, entity, action, [entity+action], actor",
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table("transactions")
+          .toCollection()
+          .modify((t: Transaction) => {
+            if (t.deletedAt === undefined || t.deletedAt === null) {
+              t.deletedAt = "";
+            }
+          });
+        await tx
+          .table("allocations")
+          .toCollection()
+          .modify((a: Allocation) => {
+            if (a.deletedAt === undefined || a.deletedAt === null) {
+              a.deletedAt = "";
+            }
+          });
+      });
   }
 }
 
 export const db = new WardBudgetDB();
+
+/** Current schema version that the app code targets. */
+export const SCHEMA_VERSION = 2;

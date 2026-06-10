@@ -6,6 +6,8 @@ import Budget from "./pages/Budget";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import Help from "./pages/Help";
+import Trash from "./pages/Trash";
+import AuditLog from "./pages/AuditLog";
 
 export default function App() {
   return (
@@ -15,6 +17,8 @@ export default function App() {
         <Route path="/transactions" element={<Transactions />} />
         <Route path="/budget" element={<Budget />} />
         <Route path="/reports" element={<Reports />} />
+        <Route path="/audit" element={<AuditLog />} />
+        <Route path="/trash" element={<Trash />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/help" element={<Help />} />
         <Route path="*" element={<Navigate to="/" replace />} />

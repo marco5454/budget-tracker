@@ -237,6 +237,55 @@ export default function Help() {
         </p>
       </Section>
 
+      <Section title="Active Actor">
+        <p>
+          Open <strong>Settings → Active Actor</strong> and choose
+          <strong> Bishop</strong>, <strong> Clerk</strong>,{" "}
+          <strong>Asst. Clerk</strong>, or <strong>Other</strong> (with a
+          free-form name). The chosen name is stamped onto every entry in
+          the Audit Log. Update it whenever a different person uses the app
+          on this device.
+        </p>
+      </Section>
+
+      <Section title="Audit Log">
+        <p>
+          Every create, update, and delete on transactions, allocations,
+          organizations, categories, and key settings is recorded in the
+          <strong> Audit Log</strong>. Open it from the navigation bar.
+        </p>
+        <ul className="list-disc pl-5 space-y-1">
+          <li>Filter by entity, action (create / update / delete / restore / purge), or actor.</li>
+          <li>Search the summary text.</li>
+          <li>Export the filtered view to CSV.</li>
+          <li>Entries older than 365 days are pruned automatically at startup.</li>
+          <li>The audit log is included in JSON backups (encrypted or plain).</li>
+        </ul>
+      </Section>
+
+      <Section title="Trash & Undo">
+        <p>
+          Deleting a transaction or allocation moves it to <strong>Trash</strong>{" "}
+          rather than removing it permanently. An 8-second{" "}
+          <strong>Undo</strong> toast appears immediately after each delete.
+        </p>
+        <ul className="list-disc pl-5 space-y-1">
+          <li>Open <strong>Trash</strong> from the navigation to <strong>Restore</strong> or <strong>Delete forever</strong>.</li>
+          <li>Trash items auto-purge after 30 days.</li>
+          <li>"Empty Trash" requires typing <strong>EMPTY</strong> to confirm.</li>
+          <li>Trashed rows are excluded from Dashboard, Reports, and the regular Transactions/Budget pages.</li>
+        </ul>
+      </Section>
+
+      <Section title="Multi-Tab Safety">
+        <p>
+          If you happen to open the app in more than one tab or window, edits in
+          one tab are pushed to the others through the browser. A small{" "}
+          <em>"Updated from another tab"</em> banner appears for a few
+          seconds; the lists already refresh on their own.
+        </p>
+      </Section>
+
       <Section title="Backup Reminders">
         <p>
           When you make changes and have not backed up in over 7 days (or

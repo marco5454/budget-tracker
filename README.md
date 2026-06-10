@@ -12,8 +12,11 @@ An offline-first web app to help LDS ward bishopric and clerks track quarterly/a
 - **Transactions** page with search/filter (year, quarter, organization, type, status), CSV export, edit/delete, and optional receipt attachment.
 - **Budget** page to set annual or quarterly allocations per organization, with helper to split annual into quarters.
 - **Reports** page with annual breakdown by organization (per-quarter spent), category totals, and monthly summary — each exportable to CSV.
-- **Settings** to manage organizations, categories, ward name, currency, and backups.
-- **Backup & Restore** as JSON files (manual download/import; merge or replace).
+- **Audit Log** of every create/update/delete on transactions, allocations, organizations, categories, and key settings — filterable by entity/action/actor and exportable to CSV.
+- **Trash** with 30-day auto-purge for deleted transactions and allocations, plus an 8-second Undo on delete.
+- **Multi-tab safety** — when another tab edits data, this tab refreshes automatically and shows a banner.
+- **Settings** to manage organizations, categories, ward name, currency, active actor, security, and backups.
+- **Backup & Restore** as JSON files (manual download/import; merge or replace) — now includes the audit log.
 - **Income tracking** for quarterly allotments, inter-ward transfers, refunds.
 - **PWA** — installable, works fully offline once loaded.
 - **Default currency**: PHP (₱). Configurable.
@@ -133,6 +136,32 @@ In **Settings → Auto-Backup to Folder** you can pick a folder once. The app wi
 - **Read-back verification:** after writing, the app reads the file back and recomputes its SHA-256. A mismatch is reported as an error.
 - **Retention:** by default the last 30 backup files are kept; older ones are pruned automatically. Configurable 1–180 in Settings.
 - Best practice: choose a folder that is itself synced to a cloud drive (OneDrive / iCloud / Google Drive / Dropbox / Syncthing). That way a fresh backup is automatically replicated off-device.
+
+## Active Actor
+
+Open **Settings → Active Actor** and pick **Bishop**, **Clerk**, **Asst. Clerk**, or **Other** (with a free-form name). This name is stamped onto every audit-log entry. Update it whenever a different person is using the app on this device.
+
+## Audit Log
+
+Every create / update / delete on transactions, allocations, organizations, categories, and key settings is recorded.
+
+- Open **Audit Log** in the nav. Filter by entity (transaction / allocation / organization / category / setting), action (create / update / delete / restore / purge), or actor; full-text search on the summary text.
+- Export the filtered view to CSV.
+- Entries older than **365 days** are pruned automatically at startup.
+- The audit log is included in JSON backups (encrypted or plain) and is restored by Import.
+
+## Trash & Undo
+
+Deleting a transaction or allocation moves it to **Trash** (a soft delete) instead of permanently removing it.
+
+- An 8-second **Undo** toast appears immediately after delete.
+- Open **Trash** to **Restore** items or **Delete forever**.
+- Trash items are auto-purged after **30 days**.
+- "Empty Trash" requires typing **EMPTY** to confirm.
+
+## Multi-Tab Safety
+
+If you open the app in more than one tab/window, edits made in one tab are pushed to the others via a BroadcastChannel. A small **"Updated from another tab"** banner appears for a few seconds; the lists already refresh automatically.
 
 ## Optional App Lock (PIN/Passphrase)
 

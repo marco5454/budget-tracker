@@ -15,8 +15,14 @@ export default function Reports() {
   const currency = useSetting<string>("currency", "PHP");
   const orgs = useLiveQuery(() => db.organizations.orderBy("order").toArray(), []);
   const cats = useLiveQuery(() => db.categories.toArray(), []);
-  const txns = useLiveQuery(() => db.transactions.toArray(), []);
-  const allocations = useLiveQuery(() => db.allocations.toArray(), []);
+  const txns = useLiveQuery(
+    () => db.transactions.filter((t) => !t.deletedAt).toArray(),
+    [],
+  );
+  const allocations = useLiveQuery(
+    () => db.allocations.filter((a) => !a.deletedAt).toArray(),
+    [],
+  );
 
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());

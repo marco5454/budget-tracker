@@ -51,9 +51,15 @@ export default function Dashboard() {
   const [showAdd, setShowAdd] = useState(false);
   const [addDirty, setAddDirty] = useState(false);
 
-  const txns = useLiveQuery(() => db.transactions.toArray(), []);
+  const txns = useLiveQuery(
+    () => db.transactions.filter((t) => !t.deletedAt).toArray(),
+    [],
+  );
   const orgs = useLiveQuery(() => db.organizations.orderBy("order").toArray(), []);
-  const allocations = useLiveQuery(() => db.allocations.toArray(), []);
+  const allocations = useLiveQuery(
+    () => db.allocations.filter((a) => !a.deletedAt).toArray(),
+    [],
+  );
 
   const filteredTxns = useMemo(() => {
     if (!txns) return [];

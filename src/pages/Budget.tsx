@@ -10,14 +10,24 @@ import { useSetting } from "../hooks/useSetting";
 import { useToast } from "../components/Toast";
 import { useConfirm } from "../components/Confirm";
 import { markDataChanged } from "../utils/backup";
+import { logAudit } from "../utils/audit";
+import { broadcastDataChanged } from "../utils/broadcast";
+import { restoreAllocation, softDeleteAllocation } from "../utils/trash";
 
 type QuarterChoice = 0 | 1 | 2 | 3 | 4;
 
 export default function Budget() {
   const currency = useSetting<string>("currency", "PHP");
   const orgs = useLiveQuery(() => db.organizations.orderBy("order").toArray(), []);
-  const allocations = useLiveQuery(() => db.allocations.toArray(), []);
-  const txns = useLiveQuery(() => db.transactions.toArray(), []);
+  // Live, non-trashed allocations and transactions only.
+  const allocations = useLiveQuery(
+    () => db.allocations.filter((a) => !a.deletedAt).toArray(),
+    [],
+  );
+  const txns = useLiveQuery(
+    () => db.transactions.filter((t) => !t.deletedAt).toArray(),
+    [],
+  );
   const toast = useToast();
   const confirm = useConfirm();
 
@@ -79,22 +89,32 @@ export default function Budget() {
    * Atomic upsert: read-then-write inside a single Dexie transaction
    * scoped to the [year, quarter, organizationId] compound index, so
    * concurrent edits don't create duplicate allocations.
+   *
+   * Returns { id, action, prevAmount } so callers can produce a clear audit entry.
    */
-  const upsertAllocation = async (orgId: number, amt: number) => {
-    await db.transaction("rw", db.allocations, async () => {
+  const upsertAllocation = async (
+    orgId: number,
+    amt: number,
+  ): Promise<{ id: number; action: "create" | "update"; prevAmount?: number }> => {
+    return await db.transaction("rw", db.allocations, async () => {
       const existing = await db.allocations
         .where("[year+quarter+organizationId]")
         .equals([year, quarter, orgId])
         .first();
       if (existing?.id) {
-        await db.allocations.update(existing.id, { amount: amt });
+        const prevAmount = existing.amount;
+        // Re-activate if it was previously trashed.
+        await db.allocations.update(existing.id, { amount: amt, deletedAt: "" });
+        return { id: existing.id, action: "update", prevAmount };
       } else {
-        await db.allocations.add({
+        const id = await db.allocations.add({
           year,
           quarter,
           organizationId: orgId,
           amount: amt,
+          deletedAt: "",
         });
+        return { id, action: "create" };
       }
     });
   };
@@ -111,8 +131,19 @@ export default function Budget() {
       return;
     }
     try {
-      await upsertAllocation(orgId, amt);
+      const orgName = orgs?.find((o) => o.id === orgId)?.name ?? `Org#${orgId}`;
+      const periodLabel = quarter === 0 ? "Annual" : `Q${quarter}`;
+      const r = await upsertAllocation(orgId, amt);
+      await logAudit(
+        "allocation",
+        r.action,
+        r.id,
+        r.action === "create"
+          ? `Set ${orgName} ${periodLabel} ${year} = ${amt.toFixed(2)}`
+          : `Updated ${orgName} ${periodLabel} ${year}: ${(r.prevAmount ?? 0).toFixed(2)} → ${amt.toFixed(2)}`,
+      );
       await markDataChanged();
+      broadcastDataChanged();
       setDraft((d) => {
         const c = { ...d };
         delete c[orgId];
@@ -130,6 +161,43 @@ export default function Budget() {
       delete c[orgId];
       return c;
     });
+  };
+
+  const removeAllocation = async (orgId: number) => {
+    const existing = (allocations ?? []).find(
+      (a) => a.organizationId === orgId && a.year === year && a.quarter === quarter,
+    );
+    if (!existing?.id) {
+      toast.warning("Nothing to delete in this period.");
+      return;
+    }
+    const ok = await confirm({
+      title: "Move allocation to Trash?",
+      message: "You can restore it from the Trash within 30 days.",
+      confirmLabel: "Move to Trash",
+      tone: "danger",
+    });
+    if (!ok) return;
+    try {
+      const id = existing.id;
+      await softDeleteAllocation(id);
+      toast.success("Allocation moved to Trash.", {
+        duration: 8000,
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            try {
+              await restoreAllocation(id);
+              toast.success("Restored.");
+            } catch (err) {
+              toast.error(`Undo failed: ${(err as Error).message}`);
+            }
+          },
+        },
+      });
+    } catch (err) {
+      toast.error(`Delete failed: ${(err as Error).message}`);
+    }
   };
 
   const copyFromAnnual = async () => {
@@ -157,7 +225,14 @@ export default function Budget() {
         const split = Math.round((total / 4) * 100) / 100;
         await upsertAllocation(orgId, split);
       }
+      await logAudit(
+        "allocation",
+        "update",
+        "bulk",
+        `Split annual into Q${quarter} ${year} (${annualByOrg.size} org(s))`,
+      );
       await markDataChanged();
+      broadcastDataChanged();
       toast.success(`Q${quarter} allocations set from annual / 4.`);
     } catch (err) {
       toast.error(`Failed: ${(err as Error).message}`);
@@ -344,12 +419,25 @@ export default function Budget() {
                         </button>
                       </>
                     ) : (
-                      <button
-                        className="text-brand-700 hover:underline"
-                        onClick={() => startEdit(orgId)}
-                      >
-                        Edit
-                      </button>
+                      <>
+                        <button
+                          className="text-brand-700 hover:underline"
+                          onClick={() => startEdit(orgId)}
+                        >
+                          Edit
+                        </button>
+                        {alloc > 0 && (
+                          <>
+                            <span className="mx-2 text-slate-300">|</span>
+                            <button
+                              className="text-red-600 hover:underline"
+                              onClick={() => removeAllocation(orgId)}
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
+                      </>
                     )}
                   </td>
                 </tr>

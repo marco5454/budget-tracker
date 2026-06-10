@@ -4,14 +4,19 @@ import { db, type Transaction } from "../db/db";
 import { formatCurrency, quarterFromDate, yearFromDate } from "../utils/format";
 import Modal from "../components/Modal";
 import TransactionForm from "../components/TransactionForm";
-import { downloadCsv, markDataChanged } from "../utils/backup";
+import { downloadCsv } from "../utils/backup";
 import { useSetting } from "../hooks/useSetting";
 import { useToast } from "../components/Toast";
 import { useConfirm } from "../components/Confirm";
+import { restoreTransaction, softDeleteTransaction } from "../utils/trash";
 
 export default function Transactions() {
   const currency = useSetting<string>("currency", "PHP");
-  const txns = useLiveQuery(() => db.transactions.toArray(), []);
+  // Hide soft-deleted (trashed) rows from the main list.
+  const txns = useLiveQuery(
+    () => db.transactions.filter((t) => !t.deletedAt).toArray(),
+    [],
+  );
   const orgs = useLiveQuery(() => db.organizations.orderBy("order").toArray(), []);
   const cats = useLiveQuery(() => db.categories.toArray(), []);
   const toast = useToast();
@@ -63,16 +68,28 @@ export default function Transactions() {
   const remove = async (id?: number) => {
     if (!id) return;
     const ok = await confirm({
-      title: "Delete transaction?",
-      message: "This cannot be undone.",
+      title: "Move transaction to Trash?",
+      message: "You can restore it from the Trash within 30 days.",
       tone: "danger",
-      confirmLabel: "Delete",
+      confirmLabel: "Move to Trash",
     });
     if (!ok) return;
     try {
-      await db.transactions.delete(id);
-      await markDataChanged();
-      toast.success("Transaction deleted.");
+      await softDeleteTransaction(id);
+      toast.success("Transaction moved to Trash.", {
+        duration: 8000,
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            try {
+              await restoreTransaction(id);
+              toast.success("Restored.");
+            } catch (err) {
+              toast.error(`Undo failed: ${(err as Error).message}`);
+            }
+          },
+        },
+      });
     } catch (err) {
       toast.error(`Delete failed: ${(err as Error).message}`);
     }

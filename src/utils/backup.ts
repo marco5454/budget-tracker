@@ -24,6 +24,11 @@ export interface BackupFile {
     transactions: unknown[];
     allocations: unknown[];
     settings: unknown[];
+    /**
+     * Audit log entries. Optional for backwards-compatibility — older
+     * backups exported before schema v2 don't include this field.
+     */
+    auditLog?: unknown[];
   };
   integrity?: {
     algorithm: "SHA-256";
@@ -39,15 +44,16 @@ function canonicalDataString(data: BackupFile["data"]): string {
 }
 
 export async function exportBackup(): Promise<BackupFile> {
-  const [organizations, categories, transactions, allocations, settings] =
+  const [organizations, categories, transactions, allocations, settings, auditLog] =
     await Promise.all([
       db.organizations.toArray(),
       db.categories.toArray(),
       db.transactions.toArray(),
       db.allocations.toArray(),
       db.settings.toArray(),
+      db.auditLog.toArray(),
     ]);
-  const data = { organizations, categories, transactions, allocations, settings };
+  const data = { organizations, categories, transactions, allocations, settings, auditLog };
   const sha256 = await sha256Hex(canonicalDataString(data));
   return {
     appName: "Ward Budget Tracker",
@@ -228,6 +234,22 @@ async function validateBackup(parsed: unknown): Promise<ValidationResult> {
     }
     return true;
   });
+  // auditLog is optional. Drop rows missing required fields.
+  const auditRaw = Array.isArray(d.auditLog) ? (d.auditLog as unknown[]) : [];
+  const auditLog = auditRaw.filter((row, i) => {
+    const r = row as Record<string, unknown>;
+    if (
+      typeof r?.at !== "string" ||
+      typeof r?.actor !== "string" ||
+      typeof r?.entity !== "string" ||
+      typeof r?.action !== "string" ||
+      typeof r?.summary !== "string"
+    ) {
+      warnings.push({ table: "auditLog", index: i, reason: "missing/invalid required fields" });
+      return false;
+    }
+    return true;
+  });
 
   return {
     ok: true,
@@ -239,6 +261,7 @@ async function validateBackup(parsed: unknown): Promise<ValidationResult> {
       transactions: txns,
       allocations: allocs,
       settings,
+      auditLog,
     },
     integrityChecked,
     integrityOk,
@@ -252,6 +275,7 @@ export interface ImportResult {
     transactions: number;
     allocations: number;
     settings: number;
+    auditLog: number;
   };
   warnings: ValidationIssue[];
   encrypted: boolean;
@@ -302,12 +326,12 @@ export async function importBackup(
   if (!v.ok || !v.data) {
     throw new Error(v.errors.join(" "));
   }
-  const { organizations, categories, transactions, allocations, settings } =
+  const { organizations, categories, transactions, allocations, settings, auditLog } =
     v.data;
 
   await db.transaction(
     "rw",
-    [db.organizations, db.categories, db.transactions, db.allocations, db.settings],
+    [db.organizations, db.categories, db.transactions, db.allocations, db.settings, db.auditLog],
     async () => {
       if (mode === "replace") {
         await Promise.all([
@@ -316,6 +340,7 @@ export async function importBackup(
           db.transactions.clear(),
           db.allocations.clear(),
           db.settings.clear(),
+          db.auditLog.clear(),
         ]);
       }
       if (organizations.length) await db.organizations.bulkPut(organizations as never);
@@ -323,6 +348,7 @@ export async function importBackup(
       if (transactions.length) await db.transactions.bulkPut(transactions as never);
       if (allocations.length) await db.allocations.bulkPut(allocations as never);
       if (settings.length) await db.settings.bulkPut(settings as never);
+      if (auditLog && auditLog.length) await db.auditLog.bulkPut(auditLog as never);
     },
   );
   await markDataChanged();
@@ -333,6 +359,7 @@ export async function importBackup(
       transactions: transactions.length,
       allocations: allocations.length,
       settings: settings.length,
+      auditLog: auditLog?.length ?? 0,
     },
     warnings: v.warnings,
     encrypted,

@@ -13,6 +13,8 @@ import {
   todayIso,
 } from "../utils/format";
 import { markDataChanged } from "../utils/backup";
+import { logAudit } from "../utils/audit";
+import { broadcastDataChanged } from "../utils/broadcast";
 import { useToast } from "./Toast";
 
 interface Props {
@@ -148,12 +150,25 @@ export default function TransactionForm({
       };
       if (initial?.id) {
         await db.transactions.update(initial.id, record);
+        await logAudit(
+          "transaction",
+          "update",
+          initial.id,
+          `Updated transaction (${record.date}, ${record.type}, ${record.amount.toFixed(2)})`,
+        );
         toast.success("Transaction updated.");
       } else {
-        await db.transactions.add(record);
+        const newId = await db.transactions.add(record);
+        await logAudit(
+          "transaction",
+          "create",
+          newId,
+          `Added transaction (${record.date}, ${record.type}, ${record.amount.toFixed(2)})`,
+        );
         toast.success("Transaction added.");
       }
       await markDataChanged();
+      broadcastDataChanged();
       setDirty(false);
       onDirtyChange?.(false);
       onSaved();

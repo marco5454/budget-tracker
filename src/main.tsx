@@ -10,10 +10,20 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import LockGate from "./components/LockGate";
 import { LockStateProvider } from "./hooks/useLockState";
 import { maybeRunAutoBackup } from "./utils/autoBackup";
+import { pruneAuditLog } from "./utils/audit";
+import { autoPurgeOldTrash } from "./utils/trash";
 
-seedIfEmpty()
-  .then(() => maybeRunAutoBackup())
-  .catch((err) => console.error("Startup task failed:", err));
+async function startupTasks() {
+  await seedIfEmpty();
+  // Run housekeeping tasks in parallel; failures are non-fatal.
+  await Promise.allSettled([
+    pruneAuditLog(),
+    autoPurgeOldTrash(),
+    maybeRunAutoBackup(),
+  ]);
+}
+
+startupTasks().catch((err) => console.error("Startup task failed:", err));
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

@@ -1,12 +1,15 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useSetting } from "../hooks/useSetting";
 import BackupReminderBanner from "./BackupReminderBanner";
+import MultiTabBanner from "./MultiTabBanner";
 
 const NAV = [
   { to: "/", label: "Dashboard", end: true },
   { to: "/transactions", label: "Transactions" },
   { to: "/budget", label: "Budget" },
   { to: "/reports", label: "Reports" },
+  { to: "/audit", label: "Audit Log" },
+  { to: "/trash", label: "Trash" },
   { to: "/settings", label: "Settings" },
   { to: "/help", label: "Help" },
 ];
@@ -57,6 +60,7 @@ export default function Layout() {
         </nav>
       </header>
       <BackupReminderBanner />
+      <MultiTabBanner />
       <main className="flex-1">
         <div className="max-w-7xl mx-auto px-4 py-6">
           <Outlet />
