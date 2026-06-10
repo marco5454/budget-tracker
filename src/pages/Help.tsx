@@ -138,12 +138,42 @@ export default function Help() {
             safe location (cloud drive, USB, or a folder you back up).
           </li>
           <li>
+            For sensitive data, use <strong>Export encrypted backup</strong>{" "}
+            instead. You will choose a passphrase; the resulting{" "}
+            <code>.wbtbak</code> file is encrypted with AES-GCM and cannot be
+            opened without it.
+          </li>
+          <li>
             To restore on another device, use <strong>Import</strong> with mode
             "Replace" (start fresh — you will be asked to type{" "}
             <code>REPLACE</code> to confirm) or "Merge" (combine with existing).
+            For encrypted files you will be prompted for the passphrase.
           </li>
         </ol>
+        <p>
+          Each backup file includes a SHA-256 integrity hash. Import will
+          refuse a file whose contents have been altered.
+        </p>
         <p>Suggested cadence: at least weekly, plus before any major change.</p>
+      </Section>
+
+      <Section title="Auto-Backup Folder (Chrome / Edge)">
+        <p>
+          In Chrome / Edge / Opera you can pick a folder once and the app
+          will write a fresh backup there automatically when due. Each backup
+          is verified by reading the file back and recomputing its hash.
+        </p>
+        <ul className="list-disc pl-6 space-y-1">
+          <li>Default cadence: daily; configurable 1–30 days.</li>
+          <li>
+            Default retention: keep the last 30 backups; older files are
+            pruned automatically. Configurable 1–180.
+          </li>
+          <li>
+            Pick a cloud-synced folder (OneDrive, iCloud, Google Drive,
+            Dropbox, Syncthing) so your backups replicate off-device.
+          </li>
+        </ul>
       </Section>
 
       <Section title="Reports &amp; CSV Export">
@@ -179,9 +209,11 @@ export default function Help() {
       <Section title="App Lock (Optional PIN/Passphrase)">
         <p>
           You can require a PIN or passphrase before the app opens. This is an{" "}
-          <em>access gate</em>, not encryption — anyone with full access to the
-          device's browser data could still read the underlying records, so
-          continue to keep the device itself secured.
+          <em>access gate</em> against casual browser snooping — it is{" "}
+          <strong>not</strong> full-disk encryption. The underlying browser
+          data could still be read by someone with full device access, so
+          continue to keep the device itself secured. For confidential
+          backups, also use the <em>Export encrypted backup</em> option.
         </p>
         <ol className="list-decimal pl-6 space-y-1">
           <li>
@@ -192,14 +224,16 @@ export default function Help() {
             <strong>Enable lock</strong>.
           </li>
           <li>
-            From now on, the app will prompt for the PIN before showing any
-            data.
+            Adjust <strong>Auto-lock after idle</strong> (default 10 minutes;
+            0 disables) and <strong>Lock when this tab is hidden</strong> as
+            you prefer.
           </li>
         </ol>
         <p>
-          <strong>Important:</strong> if you forget the PIN, there is no
-          recovery. You will need to clear the app's site data and restore from
-          a backup file. Always keep an up-to-date backup.
+          After 10 failed unlock attempts the app blocks all attempts for{" "}
+          <strong>15 minutes</strong>. There is no recovery from a forgotten
+          PIN — you will need to clear the app's site data and restore from a
+          backup file. Always keep an up-to-date backup.
         </p>
       </Section>
 

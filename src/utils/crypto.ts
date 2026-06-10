@@ -55,12 +55,20 @@ async function deriveBitsPBKDF2(
     false,
     ["deriveBits"],
   );
-  const saltBuf = salt instanceof Uint8Array ? salt.buffer : salt;
+  const saltBuf = salt instanceof Uint8Array ? toArrayBuffer(salt) : salt;
   return crypto.subtle.deriveBits(
     { name: "PBKDF2", salt: saltBuf, iterations, hash: "SHA-256" },
     pwKey,
     bits,
   );
+}
+
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  // Copy into a fresh ArrayBuffer (avoids SharedArrayBuffer typing issues
+  // and any byteOffset/byteLength weirdness from views).
+  const out = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(out).set(bytes);
+  return out;
 }
 
 // ===== App-lock PIN/passphrase =====
@@ -156,7 +164,7 @@ async function deriveAesKey(
   return crypto.subtle.deriveKey(
     {
       name: "PBKDF2",
-      salt: saltBytes.buffer as ArrayBuffer,
+      salt: toArrayBuffer(saltBytes),
       iterations,
       hash: "SHA-256",
     },
@@ -179,7 +187,7 @@ export async function encryptBackupPayload(
   const key = await deriveAesKey(passphrase, saltBytes, PBKDF2_BACKUP_ITERATIONS);
   const data = new TextEncoder().encode(plaintextJson);
   const ct = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv: ivBytes.buffer as ArrayBuffer },
+    { name: "AES-GCM", iv: toArrayBuffer(ivBytes) },
     key,
     data,
   );
@@ -214,7 +222,7 @@ export async function decryptBackupPayload(
   let ptBuf: ArrayBuffer;
   try {
     ptBuf = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv: ivBytes.buffer as ArrayBuffer },
+      { name: "AES-GCM", iv: toArrayBuffer(ivBytes) },
       key,
       b64ToBuf(envelope.ciphertext),
     );

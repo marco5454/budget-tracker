@@ -1,5 +1,6 @@
 import { db } from "../db/db";
 import { exportBackup } from "./backup";
+import { sha256Hex } from "./crypto";
 
 /**
  * Auto-backup module.
@@ -8,14 +9,12 @@ import { exportBackup } from "./backup";
  * persist a chosen folder handle and write JSON backups into it on a
  * user-configurable cadence.
  *
- * If the API is unavailable (Firefox, Safari), the UI falls back to a
- * "Download backup now" button.
- *
  * Settings keys used:
- *   - autoBackupHandle:   FileSystemDirectoryHandle (structured-cloned into IndexedDB)
- *   - autoBackupEnabled:  boolean
- *   - autoBackupFreqDays: number (default 1 = daily)
- *   - autoBackupLastAt:   ISO string of last successful auto-backup
+ *   - autoBackupHandle:    FileSystemDirectoryHandle (structured-cloned into IndexedDB)
+ *   - autoBackupEnabled:   boolean
+ *   - autoBackupFreqDays:  number (default 1 = daily)
+ *   - autoBackupRetention: number (default 30; 1..180)
+ *   - autoBackupLastAt:    ISO string of last successful auto-backup
  *   - autoBackupLastError: last error message, if any
  */
 
@@ -23,9 +22,17 @@ const KEYS = {
   handle: "autoBackupHandle",
   enabled: "autoBackupEnabled",
   freq: "autoBackupFreqDays",
+  retention: "autoBackupRetention",
   lastAt: "autoBackupLastAt",
   lastError: "autoBackupLastError",
 } as const;
+
+const RETENTION_DEFAULT = 30;
+const RETENTION_MIN = 1;
+const RETENTION_MAX = 180;
+
+/** Filename pattern produced by this module. Used for retention pruning. */
+const BACKUP_FILENAME_RE = /^ward-budget-backup-.+\.json$/;
 
 type DirHandle = FileSystemDirectoryHandle;
 
@@ -60,6 +67,8 @@ export async function pickAutoBackupFolder(): Promise<DirHandle> {
   if (existingEnabled === undefined) await putSetting(KEYS.enabled, true);
   const existingFreq = await getSetting<number>(KEYS.freq);
   if (existingFreq === undefined) await putSetting(KEYS.freq, 1);
+  const existingRetention = await getSetting<number>(KEYS.retention);
+  if (existingRetention === undefined) await putSetting(KEYS.retention, RETENTION_DEFAULT);
   return handle;
 }
 
@@ -76,12 +85,17 @@ export async function setAutoBackupFrequencyDays(days: number): Promise<void> {
   const safe = Math.max(1, Math.min(30, Math.round(days)));
   await putSetting(KEYS.freq, safe);
 }
+export async function setAutoBackupRetention(count: number): Promise<void> {
+  const safe = Math.max(RETENTION_MIN, Math.min(RETENTION_MAX, Math.round(count)));
+  await putSetting(KEYS.retention, safe);
+}
 
 export interface AutoBackupState {
   supported: boolean;
   hasHandle: boolean;
   enabled: boolean;
   frequencyDays: number;
+  retention: number;
   lastAt: string | null;
   lastError: string | null;
   folderName: string | null;
@@ -93,6 +107,7 @@ export async function getAutoBackupState(): Promise<AutoBackupState> {
   const handle = await getSetting<DirHandle>(KEYS.handle);
   const enabled = (await getSetting<boolean>(KEYS.enabled)) ?? false;
   const frequencyDays = (await getSetting<number>(KEYS.freq)) ?? 1;
+  const retention = (await getSetting<number>(KEYS.retention)) ?? RETENTION_DEFAULT;
   const lastAt = (await getSetting<string>(KEYS.lastAt)) ?? null;
   const lastError = (await getSetting<string>(KEYS.lastError)) ?? null;
 
@@ -110,6 +125,7 @@ export async function getAutoBackupState(): Promise<AutoBackupState> {
     hasHandle: !!handle,
     enabled,
     frequencyDays,
+    retention,
     lastAt,
     lastError,
     folderName: handle?.name ?? null,
@@ -132,8 +148,67 @@ function backupFilename(): string {
   return `ward-budget-backup-${stamp}.json`;
 }
 
-/** Force a backup now (used by "Backup now" button and the auto-runner). */
-export async function runAutoBackupNow(): Promise<{ ok: true; filename: string }> {
+interface DirEntry {
+  kind: "file" | "directory";
+  name: string;
+}
+
+interface DirAsyncIterable {
+  values(): AsyncIterable<DirEntry>;
+}
+
+async function listBackupFiles(handle: DirHandle): Promise<string[]> {
+  const out: string[] = [];
+  const iter = (handle as unknown as DirAsyncIterable).values?.();
+  if (!iter) return out;
+  for await (const entry of iter) {
+    if (entry.kind === "file" && BACKUP_FILENAME_RE.test(entry.name)) {
+      out.push(entry.name);
+    }
+  }
+  return out;
+}
+
+/** Keep newest `keep` files, delete the rest. Filenames sort lexically by timestamp. */
+async function pruneOldBackups(handle: DirHandle, keep: number): Promise<number> {
+  const files = await listBackupFiles(handle);
+  if (files.length <= keep) return 0;
+  // Newest first because timestamp is in the filename.
+  files.sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
+  const toDelete = files.slice(keep);
+  let deleted = 0;
+  for (const name of toDelete) {
+    try {
+      await handle.removeEntry(name);
+      deleted++;
+    } catch {
+      // best-effort; ignore individual failures
+    }
+  }
+  return deleted;
+}
+
+/** Write a string to a file in the directory. */
+async function writeFile(handle: DirHandle, filename: string, contents: string): Promise<void> {
+  const fileHandle = await handle.getFileHandle(filename, { create: true });
+  const writable = await fileHandle.createWritable();
+  await writable.write(contents);
+  await writable.close();
+}
+
+/** Read back a file and return its text. */
+async function readFile(handle: DirHandle, filename: string): Promise<string> {
+  const fileHandle = await handle.getFileHandle(filename, { create: false });
+  const file = await fileHandle.getFile();
+  return await file.text();
+}
+
+/** Force a backup now. Performs read-back verification and retention pruning. */
+export async function runAutoBackupNow(): Promise<{
+  ok: true;
+  filename: string;
+  pruned: number;
+}> {
   const handle = await getSetting<DirHandle>(KEYS.handle);
   if (!handle) throw new Error("No auto-backup folder selected.");
   const granted = await ensurePermission(handle);
@@ -144,17 +219,39 @@ export async function runAutoBackupNow(): Promise<{ ok: true; filename: string }
 
   const data = await exportBackup();
   const json = JSON.stringify(data, null, 2);
+  const expectedHash = await sha256Hex(json);
   const filename = backupFilename();
 
   try {
-    const fileHandle = await handle.getFileHandle(filename, { create: true });
-    const writable = await fileHandle.createWritable();
-    await writable.write(json);
-    await writable.close();
+    await writeFile(handle, filename, json);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown write error";
     await putSetting(KEYS.lastError, msg);
     throw new Error(`Failed to write backup file: ${msg}`);
+  }
+
+  // Read-back verification.
+  try {
+    const readBack = await readFile(handle, filename);
+    const actualHash = await sha256Hex(readBack);
+    if (actualHash !== expectedHash) {
+      const msg = "Backup verification failed: file on disk does not match what was written.";
+      await putSetting(KEYS.lastError, msg);
+      throw new Error(msg);
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Unknown verification error";
+    await putSetting(KEYS.lastError, msg);
+    throw new Error(`Backup verification failed: ${msg}`);
+  }
+
+  // Retention pruning (best-effort, doesn't fail the backup).
+  let pruned = 0;
+  try {
+    const retention = (await getSetting<number>(KEYS.retention)) ?? RETENTION_DEFAULT;
+    pruned = await pruneOldBackups(handle, retention);
+  } catch {
+    // ignore prune errors
   }
 
   const now = new Date().toISOString();
@@ -162,7 +259,7 @@ export async function runAutoBackupNow(): Promise<{ ok: true; filename: string }
   await db.settings.delete(KEYS.lastError);
   // Also update the regular lastBackupAt so the reminder banner clears.
   await putSetting("lastBackupAt", now);
-  return { ok: true, filename };
+  return { ok: true, filename, pruned };
 }
 
 /**

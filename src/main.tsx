@@ -8,6 +8,7 @@ import { ToastProvider } from "./components/Toast";
 import { ConfirmProvider } from "./components/Confirm";
 import ErrorBoundary from "./components/ErrorBoundary";
 import LockGate from "./components/LockGate";
+import { LockStateProvider } from "./hooks/useLockState";
 import { maybeRunAutoBackup } from "./utils/autoBackup";
 
 seedIfEmpty()
@@ -19,11 +20,13 @@ createRoot(document.getElementById("root")!).render(
     <ErrorBoundary>
       <ToastProvider>
         <ConfirmProvider>
-          <LockGate>
-            <HashRouter>
-              <App />
-            </HashRouter>
-          </LockGate>
+          <LockStateProvider>
+            <LockGate>
+              <HashRouter>
+                <App />
+              </HashRouter>
+            </LockGate>
+          </LockStateProvider>
         </ConfirmProvider>
       </ToastProvider>
     </ErrorBoundary>

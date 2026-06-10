@@ -1,12 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/db";
-import { downloadBackup, importBackup } from "../utils/backup";
+import {
+  downloadBackup,
+  downloadEncryptedBackup,
+  importBackup,
+  peekBackupFile,
+} from "../utils/backup";
 import {
   pickAutoBackupFolder,
   clearAutoBackupFolder,
   setAutoBackupEnabled,
   setAutoBackupFrequencyDays,
+  setAutoBackupRetention,
   getAutoBackupState,
   runAutoBackupNow,
   type AutoBackupState,
@@ -15,12 +21,15 @@ import { setSetting, useSetting } from "../hooks/useSetting";
 import { useToast } from "../components/Toast";
 import { useConfirm } from "../components/Confirm";
 import { createLockHash, type LockHash } from "../utils/crypto";
+import { notifyLockSettingsChanged } from "../hooks/useLockState";
 
 export default function Settings() {
   const wardName = useSetting<string>("wardName", "");
   const currency = useSetting<string>("currency", "PHP");
   const lastBackupAt = useSetting<string | null>("lastBackupAt", null);
   const lockHash = useSetting<LockHash | null>("lockHash", null);
+  const idleMinutesSetting = useSetting<number>("lockIdleMinutes", 10);
+  const lockOnHideSetting = useSetting<boolean>("lockOnTabHide", true);
 
   const orgs = useLiveQuery(() => db.organizations.orderBy("order").toArray(), []);
   const cats = useLiveQuery(() => db.categories.toArray(), []);
@@ -41,6 +50,11 @@ export default function Settings() {
 
   const [importMode, setImportMode] = useState<"merge" | "replace">("merge");
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Encrypted export
+  const [encPass1, setEncPass1] = useState("");
+  const [encPass2, setEncPass2] = useState("");
+  const [encBusy, setEncBusy] = useState(false);
 
   // App-lock UI state
   const [pin1, setPin1] = useState("");
@@ -201,11 +215,35 @@ export default function Settings() {
       }
     }
     try {
-      const result = await importBackup(file, importMode);
+      // Detect encrypted file before showing prompt.
+      let passphrase: string | undefined;
+      try {
+        const peek = await peekBackupFile(file);
+        if (peek.encrypted) {
+          const entered = window.prompt(
+            "This backup is encrypted. Enter the passphrase used when it was exported:",
+          );
+          if (entered === null) {
+            // User cancelled
+            if (fileRef.current) fileRef.current.value = "";
+            return;
+          }
+          passphrase = entered;
+        }
+      } catch (peekErr) {
+        toast.error(`Could not read file: ${(peekErr as Error).message}`);
+        if (fileRef.current) fileRef.current.value = "";
+        return;
+      }
+
+      const result = await importBackup(file, importMode, passphrase);
       const counts = result.imported;
       toast.success(
-        `Imported: ${counts.transactions} txns, ${counts.allocations} allocations, ${counts.organizations} orgs, ${counts.categories} cats.`,
+        `Imported${result.encrypted ? " (decrypted)" : ""}: ${counts.transactions} txns, ${counts.allocations} allocations, ${counts.organizations} orgs, ${counts.categories} cats.`,
       );
+      if (result.integrityChecked && result.integrityOk) {
+        toast.info("Integrity check passed.");
+      }
       if (result.warnings.length > 0) {
         toast.warning(
           `${result.warnings.length} row(s) skipped due to invalid data. See console for details.`,
@@ -217,6 +255,35 @@ export default function Settings() {
       toast.error(`Import failed: ${(err as Error).message}`);
     }
     if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const exportEncrypted = async () => {
+    if (encPass1.length < 4) {
+      toast.error("Passphrase must be at least 4 characters.");
+      return;
+    }
+    if (encPass1 !== encPass2) {
+      toast.error("Passphrases do not match.");
+      return;
+    }
+    const ok = await confirm({
+      title: "Export encrypted backup?",
+      message:
+        "Anyone who later imports this file MUST know the passphrase. Forgetting it makes the backup unrecoverable. Continue?",
+      confirmLabel: "Export",
+    });
+    if (!ok) return;
+    setEncBusy(true);
+    try {
+      await downloadEncryptedBackup(encPass1);
+      setEncPass1("");
+      setEncPass2("");
+      toast.success("Encrypted backup downloaded (.wbtbak).");
+    } catch (err) {
+      toast.error(`Export failed: ${(err as Error).message}`);
+    } finally {
+      setEncBusy(false);
+    }
   };
 
   const wipeAll = async () => {
@@ -271,6 +338,7 @@ export default function Settings() {
     try {
       const hash = await createLockHash(pin1);
       await setSetting("lockHash", hash);
+      notifyLockSettingsChanged();
       setPin1("");
       setPin2("");
       toast.success("App lock enabled. It will be required next time you open the app.");
@@ -291,7 +359,27 @@ export default function Settings() {
     if (!ok) return;
     try {
       await db.settings.delete("lockHash");
+      notifyLockSettingsChanged();
       toast.success("App lock removed.");
+    } catch (err) {
+      toast.error(`Failed: ${(err as Error).message}`);
+    }
+  };
+
+  const updateIdleMinutes = async (n: number) => {
+    const safe = Math.max(0, Math.min(60, Math.round(n)));
+    try {
+      await setSetting("lockIdleMinutes", safe);
+      notifyLockSettingsChanged();
+    } catch (err) {
+      toast.error(`Failed: ${(err as Error).message}`);
+    }
+  };
+
+  const updateLockOnHide = async (v: boolean) => {
+    try {
+      await setSetting("lockOnTabHide", v);
+      notifyLockSettingsChanged();
     } catch (err) {
       toast.error(`Failed: ${(err as Error).message}`);
     }
@@ -473,6 +561,25 @@ export default function Settings() {
                 />
               </div>
 
+              <div>
+                <label className="label" htmlFor="auto-retention">
+                  Keep last N backups
+                </label>
+                <input
+                  id="auto-retention"
+                  type="number"
+                  min={1}
+                  max={180}
+                  className="input w-24"
+                  value={autoState.retention}
+                  onChange={async (e) => {
+                    const n = Number(e.target.value) || 30;
+                    await setAutoBackupRetention(n);
+                    await refreshAutoState();
+                  }}
+                />
+              </div>
+
               <button
                 className="btn btn-secondary"
                 disabled={autoBusy}
@@ -480,7 +587,8 @@ export default function Settings() {
                   setAutoBusy(true);
                   try {
                     const r = await runAutoBackupNow();
-                    toast.success(`Backup written: ${r.filename}`);
+                    const pruneNote = r.pruned > 0 ? ` (${r.pruned} old file${r.pruned === 1 ? "" : "s"} pruned)` : "";
+                    toast.success(`Backup written: ${r.filename}${pruneNote}`);
                     await refreshAutoState();
                   } catch (err) {
                     toast.error((err as Error).message);
@@ -565,11 +673,58 @@ export default function Settings() {
                 id="import-file"
                 ref={fileRef}
                 type="file"
-                accept="application/json"
+                accept="application/json,.json,.wbtbak"
                 onChange={(e) => onImport(e.target.files?.[0] ?? null)}
                 className="text-sm"
               />
             </div>
+          </div>
+        </div>
+
+        <div className="border-t pt-3 space-y-3">
+          <div>
+            <h4 className="font-semibold text-slate-800 text-sm">
+              Encrypted backup (optional)
+            </h4>
+            <p className="text-xs text-slate-600">
+              Exports a <code>.wbtbak</code> file encrypted with your
+              passphrase using AES-GCM. Anyone importing it must enter the
+              same passphrase. There is no recovery if you forget it.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="label" htmlFor="enc-pass1">Passphrase</label>
+              <input
+                id="enc-pass1"
+                type="password"
+                className="input"
+                value={encPass1}
+                onChange={(e) => setEncPass1(e.target.value)}
+                autoComplete="new-password"
+              />
+            </div>
+            <div>
+              <label className="label" htmlFor="enc-pass2">Confirm</label>
+              <input
+                id="enc-pass2"
+                type="password"
+                className="input"
+                value={encPass2}
+                onChange={(e) => setEncPass2(e.target.value)}
+                autoComplete="new-password"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={encBusy || !encPass1 || !encPass2}
+              onClick={exportEncrypted}
+            >
+              {encBusy ? "Encrypting…" : "Export encrypted backup"}
+            </button>
           </div>
         </div>
 
@@ -592,13 +747,47 @@ export default function Settings() {
           use OS-level disk encryption.
         </p>
         {lockHash ? (
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="badge bg-emerald-100 text-emerald-700">
-              Lock is enabled
-            </span>
-            <button className="btn-danger" onClick={disableLock}>
-              Remove lock
-            </button>
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="badge bg-emerald-100 text-emerald-700">
+                Lock is enabled
+              </span>
+              <button className="btn-danger" onClick={disableLock}>
+                Remove lock
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t">
+              <div>
+                <label className="label" htmlFor="lock-idle">
+                  Auto-lock after idle (minutes)
+                </label>
+                <input
+                  id="lock-idle"
+                  type="number"
+                  min={0}
+                  max={60}
+                  className="input w-32"
+                  value={idleMinutesSetting ?? 10}
+                  onChange={(e) => updateIdleMinutes(Number(e.target.value))}
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Set to 0 to disable idle auto-lock.
+                </p>
+              </div>
+              <div className="flex items-end">
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={lockOnHideSetting ?? true}
+                    onChange={(e) => updateLockOnHide(e.target.checked)}
+                  />
+                  Lock when this tab is hidden / app is backgrounded
+                </label>
+              </div>
+            </div>
+            <p className="text-xs text-slate-500">
+              After 10 failed unlock attempts the app is blocked for 15 minutes.
+            </p>
           </div>
         ) : (
           <div className="space-y-3">

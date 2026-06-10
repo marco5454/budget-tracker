@@ -1,38 +1,48 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { db } from "../db/db";
-import { type LockHash, verifyLockHash } from "../utils/crypto";
+import { verifyLockHash } from "../utils/crypto";
+import {
+  getLockoutSnapshot,
+  registerFailedAttempt,
+  resetLockout,
+  type LockoutSnapshot,
+} from "../utils/lockout";
+import { useIdleAutoLock, useLockState } from "../hooks/useLockState";
 
 interface Props {
   children: ReactNode;
 }
 
 /**
- * Wrap the app and require the user to enter the configured PIN/passphrase
- * before showing the children. If no lock is configured, this is a no-op.
+ * Wraps the app and requires the user to enter the configured PIN/passphrase
+ * before showing the children. If no lock is configured, this is transparent.
+ *
+ * Adds:
+ *   - Idle auto-lock (10 min default; configurable in Settings).
+ *   - Lock on tab hide (configurable in Settings).
+ *   - Progressive cooldown after failed attempts.
+ *   - Hard 15-min lockout after 10 failed attempts.
  */
 export default function LockGate({ children }: Props) {
-  const [checking, setChecking] = useState(true);
-  const [lock, setLock] = useState<LockHash | null>(null);
-  const [unlocked, setUnlocked] = useState(false);
+  const { lockHash, loading, unlocked, markUnlocked } = useLockState();
+  useIdleAutoLock();
+
   const [pass, setPass] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [lockoutSnap, setLockoutSnap] = useState<LockoutSnapshot>(() =>
+    getLockoutSnapshot(),
+  );
 
+  // Tick the lockout countdown while the gate is shown.
   useEffect(() => {
-    (async () => {
-      try {
-        const row = await db.settings.get("lockHash");
-        const stored = (row?.value ?? null) as LockHash | null;
-        setLock(stored);
-      } catch {
-        setLock(null);
-      } finally {
-        setChecking(false);
-      }
-    })();
-  }, []);
+    if (!lockHash || unlocked) return;
+    const id = window.setInterval(() => {
+      setLockoutSnap(getLockoutSnapshot());
+    }, 500);
+    return () => window.clearInterval(id);
+  }, [lockHash, unlocked]);
 
-  if (checking) {
+  if (loading) {
     return (
       <div className="min-h-full grid place-items-center text-slate-500">
         Loading…
@@ -40,28 +50,38 @@ export default function LockGate({ children }: Props) {
     );
   }
 
-  if (!lock || unlocked) {
+  if (!lockHash || unlocked) {
     return <>{children}</>;
   }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    const snap = getLockoutSnapshot();
+    if (snap.message) {
+      setError(snap.message);
+      return;
+    }
     setBusy(true);
     try {
-      const ok = await verifyLockHash(pass, lock);
+      const ok = await verifyLockHash(pass, lockHash);
       if (!ok) {
-        setError("Incorrect PIN or passphrase.");
+        const next = registerFailedAttempt();
+        setLockoutSnap(next);
+        setError(next.message ?? "Incorrect PIN or passphrase.");
         setPass("");
         return;
       }
-      setUnlocked(true);
+      resetLockout();
+      markUnlocked();
     } catch (err) {
       setError((err as Error).message ?? "Unable to verify.");
     } finally {
       setBusy(false);
     }
   };
+
+  const isCoolingDown = lockoutSnap.remainingMs > 0;
 
   return (
     <div className="min-h-full grid place-items-center p-6 bg-slate-100">
@@ -87,12 +107,27 @@ export default function LockGate({ children }: Props) {
             className="input"
             value={pass}
             onChange={(e) => setPass(e.target.value)}
+            disabled={busy || lockoutSnap.hardLocked}
             required
           />
         </div>
         {error && <div className="text-sm text-red-600">{error}</div>}
-        <button type="submit" className="btn-primary w-full" disabled={busy}>
-          {busy ? "Verifying…" : "Unlock"}
+        {!error && lockoutSnap.fails > 0 && (
+          <div className="text-xs text-amber-700">
+            Failed attempts: {lockoutSnap.fails}
+            {lockoutSnap.hardLocked ? "" : " of 10"}
+          </div>
+        )}
+        <button
+          type="submit"
+          className="btn-primary w-full"
+          disabled={busy || isCoolingDown}
+        >
+          {busy
+            ? "Verifying…"
+            : isCoolingDown
+              ? "Please wait…"
+              : "Unlock"}
         </button>
         <p className="text-xs text-slate-500 text-center">
           Forgot it? Restore from a backup on a fresh browser, or clear the

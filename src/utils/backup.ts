@@ -1,5 +1,19 @@
 import { db } from "../db/db";
+import {
+  decryptBackupPayload,
+  encryptBackupPayload,
+  isEncryptedBackup,
+  sha256Hex,
+  type EncryptedBackupEnvelope,
+} from "./crypto";
 
+/**
+ * Plain (unencrypted) backup file format.
+ *
+ * `integrity.sha256` is computed over the canonical JSON of `data`
+ * (JSON.stringify with no spacing). Import recomputes and compares to
+ * detect tampering or corruption.
+ */
 export interface BackupFile {
   appName: "Ward Budget Tracker";
   version: 1;
@@ -11,6 +25,17 @@ export interface BackupFile {
     allocations: unknown[];
     settings: unknown[];
   };
+  integrity?: {
+    algorithm: "SHA-256";
+    /** hex digest of JSON.stringify(data). */
+    sha256: string;
+  };
+}
+
+function canonicalDataString(data: BackupFile["data"]): string {
+  // Stable, no-pretty-print serialization. Property order is whatever Dexie
+  // returned, which is consistent within a single export.
+  return JSON.stringify(data);
 }
 
 export async function exportBackup(): Promise<BackupFile> {
@@ -22,27 +47,57 @@ export async function exportBackup(): Promise<BackupFile> {
       db.allocations.toArray(),
       db.settings.toArray(),
     ]);
+  const data = { organizations, categories, transactions, allocations, settings };
+  const sha256 = await sha256Hex(canonicalDataString(data));
   return {
     appName: "Ward Budget Tracker",
     version: 1,
     exportedAt: new Date().toISOString(),
-    data: { organizations, categories, transactions, allocations, settings },
+    data,
+    integrity: { algorithm: "SHA-256", sha256 },
   };
+}
+
+function timestampStamp(): string {
+  return new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+}
+
+function triggerDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 export async function downloadBackup(): Promise<void> {
   const backup = await exportBackup();
   const json = JSON.stringify(backup, null, 2);
   const blob = new Blob([json], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-  a.download = `ward-budget-backup-${stamp}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  triggerDownload(blob, `ward-budget-backup-${timestampStamp()}.json`);
+  await db.settings.put({
+    key: "lastBackupAt",
+    value: new Date().toISOString(),
+  });
+}
+
+/**
+ * Encrypted export. Output file uses the .wbtbak extension. The plaintext
+ * inside the envelope is a full BackupFile (including its own integrity hash).
+ */
+export async function downloadEncryptedBackup(passphrase: string): Promise<void> {
+  if (!passphrase || passphrase.length < 4) {
+    throw new Error("Passphrase must be at least 4 characters.");
+  }
+  const backup = await exportBackup();
+  const plaintext = JSON.stringify(backup);
+  const envelope = await encryptBackupPayload(plaintext, passphrase);
+  const json = JSON.stringify(envelope, null, 2);
+  const blob = new Blob([json], { type: "application/octet-stream" });
+  triggerDownload(blob, `ward-budget-backup-${timestampStamp()}.wbtbak`);
   await db.settings.put({
     key: "lastBackupAt",
     value: new Date().toISOString(),
@@ -55,12 +110,16 @@ interface ValidationIssue {
   reason: string;
 }
 
-function validateBackup(parsed: unknown): {
+interface ValidationResult {
   ok: boolean;
   errors: string[];
   warnings: ValidationIssue[];
   data?: BackupFile["data"];
-} {
+  integrityChecked?: boolean;
+  integrityOk?: boolean;
+}
+
+async function validateBackup(parsed: unknown): Promise<ValidationResult> {
   const errors: string[] = [];
   const warnings: ValidationIssue[] = [];
 
@@ -92,6 +151,30 @@ function validateBackup(parsed: unknown): {
     }
   }
   if (errors.length > 0) return { ok: false, errors, warnings };
+
+  // Integrity check, if present. Older backups may not have one.
+  let integrityChecked = false;
+  let integrityOk: boolean | undefined;
+  const integrity = obj.integrity as
+    | { algorithm?: unknown; sha256?: unknown }
+    | undefined;
+  if (integrity && integrity.algorithm === "SHA-256" && typeof integrity.sha256 === "string") {
+    integrityChecked = true;
+    const computed = await sha256Hex(canonicalDataString(obj.data as BackupFile["data"]));
+    integrityOk = computed === integrity.sha256;
+    if (!integrityOk) {
+      errors.push(
+        "Backup integrity check failed: contents do not match the embedded SHA-256.",
+      );
+      return {
+        ok: false,
+        errors,
+        warnings,
+        integrityChecked,
+        integrityOk,
+      };
+    }
+  }
 
   // Per-row sanity checks (drop bad rows but warn).
   const orgs = (d.organizations as unknown[]).filter((row, i) => {
@@ -157,6 +240,8 @@ function validateBackup(parsed: unknown): {
       allocations: allocs,
       settings,
     },
+    integrityChecked,
+    integrityOk,
   };
 }
 
@@ -169,11 +254,21 @@ export interface ImportResult {
     settings: number;
   };
   warnings: ValidationIssue[];
+  encrypted: boolean;
+  integrityChecked: boolean;
+  integrityOk?: boolean;
 }
 
+/**
+ * Import a backup file. Auto-detects encrypted (.wbtbak) vs plain JSON.
+ *
+ * For encrypted files, supply `passphrase`. If the caller doesn't know
+ * whether the file is encrypted yet, call `peekBackupFile(file)` first.
+ */
 export async function importBackup(
   file: File,
   mode: "replace" | "merge",
+  passphrase?: string,
 ): Promise<ImportResult> {
   if (file.size > 50 * 1024 * 1024) {
     throw new Error("Backup file is unusually large (>50 MB). Refusing to import.");
@@ -185,7 +280,25 @@ export async function importBackup(
   } catch {
     throw new Error("File is not valid JSON.");
   }
-  const v = validateBackup(parsed);
+
+  let encrypted = false;
+  if (isEncryptedBackup(parsed)) {
+    encrypted = true;
+    if (!passphrase) {
+      throw new Error("Encrypted backup requires a passphrase.");
+    }
+    const { plaintextJson } = await decryptBackupPayload(
+      parsed as EncryptedBackupEnvelope,
+      passphrase,
+    );
+    try {
+      parsed = JSON.parse(plaintextJson);
+    } catch {
+      throw new Error("Decrypted contents are not valid JSON.");
+    }
+  }
+
+  const v = await validateBackup(parsed);
   if (!v.ok || !v.data) {
     throw new Error(v.errors.join(" "));
   }
@@ -222,6 +335,40 @@ export async function importBackup(
       settings: settings.length,
     },
     warnings: v.warnings,
+    encrypted,
+    integrityChecked: !!v.integrityChecked,
+    integrityOk: v.integrityOk,
+  };
+}
+
+/** Quick peek to learn whether a chosen file is encrypted before prompting for a passphrase. */
+export async function peekBackupFile(file: File): Promise<{
+  encrypted: boolean;
+  exportedAt?: string;
+}> {
+  if (file.size > 50 * 1024 * 1024) {
+    throw new Error("Backup file is unusually large (>50 MB). Refusing to read.");
+  }
+  const text = await file.text();
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new Error("File is not valid JSON.");
+  }
+  if (isEncryptedBackup(parsed)) {
+    return {
+      encrypted: true,
+      exportedAt: (parsed as EncryptedBackupEnvelope).exportedAt,
+    };
+  }
+  const obj = parsed as Record<string, unknown>;
+  if (obj?.appName !== "Ward Budget Tracker") {
+    throw new Error("File does not look like a Ward Budget Tracker backup.");
+  }
+  return {
+    encrypted: false,
+    exportedAt: typeof obj.exportedAt === "string" ? obj.exportedAt : undefined,
   };
 }
 
@@ -252,14 +399,7 @@ export function downloadCsv(
   const blob = new Blob([bom + lines.join("\r\n")], {
     type: "text/csv;charset=utf-8",
   });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  triggerDownload(blob, filename);
 }
 
 /** Mark a data change so backup-reminder logic can react. */

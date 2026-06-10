@@ -112,9 +112,15 @@ How to restore:
 
 1. **Settings → Backup & Restore**.
 2. Choose **Replace** (wipe and import — you will be asked to type `REPLACE` to confirm) or **Merge** (combine with existing).
-3. Select the JSON file. Done.
+3. Select the JSON or `.wbtbak` file. If it's encrypted, you'll be prompted for the passphrase.
+
+Backup integrity: every backup contains a SHA-256 hash of its contents. Import recomputes the hash and refuses any tampered or corrupted file.
 
 If you have changed data and have not backed up in over 7 days (or have never backed up), the app will show an amber **Backup reminder banner** at the top until you download a fresh backup.
+
+### Encrypted backup (optional)
+
+For sensitive ward data, use **Settings → Backup & Restore → Export encrypted backup**. Choose a passphrase (4+ characters) and the app produces a `.wbtbak` file encrypted with AES-256-GCM (key derived via PBKDF2-SHA256, 250,000 iterations). Import on another device requires the same passphrase. **There is no recovery if you forget it.**
 
 ---
 
@@ -124,6 +130,8 @@ In **Settings → Auto-Backup to Folder** you can pick a folder once. The app wi
 
 - This requires the File System Access API, which is currently supported in Chrome, Edge, and other Chromium-based desktop browsers. Firefox and Safari users should keep using the manual download flow above.
 - The chosen folder is remembered across sessions (the browser stores the directory handle in IndexedDB). The browser may re-prompt for permission after a long time without use; just click **Backup now** to re-grant.
+- **Read-back verification:** after writing, the app reads the file back and recomputes its SHA-256. A mismatch is reported as an error.
+- **Retention:** by default the last 30 backup files are kept; older ones are pruned automatically. Configurable 1–180 in Settings.
 - Best practice: choose a folder that is itself synced to a cloud drive (OneDrive / iCloud / Google Drive / Dropbox / Syncthing). That way a fresh backup is automatically replicated off-device.
 
 ## Optional App Lock (PIN/Passphrase)
@@ -132,7 +140,10 @@ You can require a PIN or passphrase before the app opens.
 
 - **Settings → App Lock → Enable lock**. Choose any PIN/passphrase (4+ characters).
 - The next time the app loads, it will prompt for the PIN.
-- This is an **access gate**, not encryption. It hashes the PIN with PBKDF2 and stores only the hash. Anyone with full access to the browser's storage could still read the underlying data, so keep the device itself secured.
+- **Auto-lock after idle**: default 10 minutes; configurable 0–60 in Settings (0 disables idle lock).
+- **Lock on tab hide**: enabled by default. Switching tabs or backgrounding the app re-locks it.
+- **Lockout policy**: failed attempts add a growing cooldown (1s, 2s, 5s, 10s, 30s, 60s). After 10 failed attempts the app is blocked for 15 minutes.
+- This is an **access gate**, not encryption. It hashes the PIN with PBKDF2 and stores only the hash. Anyone with full access to the browser's storage could still read the underlying data, so keep the device itself secured. For confidential backups, also use the **Export encrypted backup** option above.
 - If you forget the PIN, there is no recovery path. You'll need to clear the site's data and restore from a backup file. **Always keep an up-to-date backup.**
 
 ---
