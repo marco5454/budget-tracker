@@ -1,19 +1,63 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { db, type Transaction } from "../db/db";
-import { formatCurrency, quarterFromDate, yearFromDate } from "../utils/format";
+import { db, type Transaction, type TransactionStatus } from "../db/db";
+import {
+  formatCurrency,
+  parseLocalDate,
+  quarterFromDate,
+  yearFromDate,
+} from "../utils/format";
 import Modal from "../components/Modal";
 import TransactionForm from "../components/TransactionForm";
+import ReceiptViewer from "../components/ReceiptViewer";
 import { downloadCsv } from "../utils/backup";
 import { useSetting } from "../hooks/useSetting";
 import { useToast } from "../components/Toast";
 import { useConfirm } from "../components/Confirm";
 import { restoreTransaction, softDeleteTransaction } from "../utils/trash";
 import CsvImportModal from "../components/CsvImportModal";
+import {
+  addSavedSearch,
+  deleteSavedSearch,
+  listSavedSearches,
+  type SavedSearch,
+  type SavedSearchFilters,
+} from "../utils/savedSearches";
+
+const STATUSES: TransactionStatus[] = ["pending", "approved", "paid", "reimbursed"];
+
+interface FilterState {
+  search: string;
+  filterYear: number | "";
+  filterQuarter: "" | "1" | "2" | "3" | "4";
+  filterType: "" | "expense" | "income";
+  dateFrom: string;
+  dateTo: string;
+  amountMin: string;
+  amountMax: string;
+  orgIds: number[];
+  categoryIds: number[];
+  statuses: TransactionStatus[];
+  hasReceipt: "" | "yes" | "no";
+}
+
+const DEFAULT_FILTERS: FilterState = {
+  search: "",
+  filterYear: new Date().getFullYear(),
+  filterQuarter: "",
+  filterType: "",
+  dateFrom: "",
+  dateTo: "",
+  amountMin: "",
+  amountMax: "",
+  orgIds: [],
+  categoryIds: [],
+  statuses: [],
+  hasReceipt: "",
+};
 
 export default function Transactions() {
   const currency = useSetting<string>("currency", "PHP");
-  // Hide soft-deleted (trashed) rows from the main list.
   const txns = useLiveQuery(
     () => db.transactions.filter((t) => !t.deletedAt).toArray(),
     [],
@@ -23,12 +67,8 @@ export default function Transactions() {
   const toast = useToast();
   const confirm = useConfirm();
 
-  const [search, setSearch] = useState("");
-  const [filterOrg, setFilterOrg] = useState<number | "">("");
-  const [filterType, setFilterType] = useState<"" | "expense" | "income">("");
-  const [filterStatus, setFilterStatus] = useState<string>("");
-  const [filterYear, setFilterYear] = useState<number | "">(new Date().getFullYear());
-  const [filterQuarter, setFilterQuarter] = useState<"" | "1" | "2" | "3" | "4">("");
+  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [editing, setEditing] = useState<Transaction | undefined>(undefined);
   const [adding, setAdding] = useState(false);
@@ -36,16 +76,73 @@ export default function Transactions() {
   const [editDirty, setEditDirty] = useState(false);
   const [csvOpen, setCsvOpen] = useState(false);
 
+  const [viewingReceipt, setViewingReceipt] = useState<string | null>(null);
+
+  // Saved searches.
+  const [saved, setSaved] = useState<SavedSearch[]>(() => listSavedSearches());
+  const [savedName, setSavedName] = useState("");
+  const refreshSaved = () => setSaved(listSavedSearches());
+
+  // Sync saved-search list across tabs.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "wbt:savedSearches") refreshSaved();
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  // "N" shortcut opens Add Transaction modal.
+  useEffect(() => {
+    const onShortcut = () => setAdding(true);
+    window.addEventListener("wbt:shortcut-new-transaction", onShortcut);
+    return () =>
+      window.removeEventListener("wbt:shortcut-new-transaction", onShortcut);
+  }, []);
+
+  const update = <K extends keyof FilterState>(key: K, value: FilterState[K]) =>
+    setFilters((prev) => ({ ...prev, [key]: value }));
+
+  const toggleInList = <T,>(list: T[], v: T): T[] =>
+    list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
+
+  const clearAll = () => setFilters(DEFAULT_FILTERS);
+
   const filtered = useMemo(() => {
     let list = [...(txns ?? [])];
+    const {
+      search,
+      filterYear,
+      filterQuarter,
+      filterType,
+      dateFrom,
+      dateTo,
+      amountMin,
+      amountMax,
+      orgIds,
+      categoryIds,
+      statuses,
+      hasReceipt,
+    } = filters;
+
     if (filterYear !== "") list = list.filter((t) => yearFromDate(t.date) === filterYear);
     if (filterQuarter !== "") {
       const q = Number(filterQuarter);
       list = list.filter((t) => quarterFromDate(t.date) === q);
     }
-    if (filterOrg !== "") list = list.filter((t) => t.organizationId === filterOrg);
     if (filterType !== "") list = list.filter((t) => t.type === filterType);
-    if (filterStatus !== "") list = list.filter((t) => t.status === filterStatus);
+    if (orgIds.length) list = list.filter((t) => orgIds.includes(t.organizationId));
+    if (categoryIds.length)
+      list = list.filter((t) => t.categoryId != null && categoryIds.includes(t.categoryId));
+    if (statuses.length) list = list.filter((t) => statuses.includes(t.status));
+    if (dateFrom) list = list.filter((t) => parseLocalDate(t.date) >= parseLocalDate(dateFrom));
+    if (dateTo) list = list.filter((t) => parseLocalDate(t.date) <= parseLocalDate(dateTo));
+    const minN = amountMin === "" ? null : Number(amountMin);
+    const maxN = amountMax === "" ? null : Number(amountMax);
+    if (minN !== null && Number.isFinite(minN)) list = list.filter((t) => t.amount >= minN);
+    if (maxN !== null && Number.isFinite(maxN)) list = list.filter((t) => t.amount <= maxN);
+    if (hasReceipt === "yes") list = list.filter((t) => !!t.receiptDataUrl);
+    if (hasReceipt === "no") list = list.filter((t) => !t.receiptDataUrl);
     if (search.trim()) {
       const s = search.trim().toLowerCase();
       list = list.filter((t) =>
@@ -56,7 +153,7 @@ export default function Transactions() {
     }
     list.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : (b.id ?? 0) - (a.id ?? 0)));
     return list;
-  }, [txns, search, filterOrg, filterType, filterStatus, filterYear, filterQuarter]);
+  }, [txns, filters]);
 
   const years = useMemo(() => {
     const set = new Set<number>([new Date().getFullYear()]);
@@ -129,6 +226,58 @@ export default function Transactions() {
     downloadCsv(`transactions-${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
   };
 
+  const saveCurrentSearch = () => {
+    const name = savedName.trim();
+    if (!name) {
+      toast.error("Give the saved search a name first.");
+      return;
+    }
+    try {
+      const filtersToSave: SavedSearchFilters = { ...filters };
+      addSavedSearch(name, filtersToSave);
+      setSavedName("");
+      refreshSaved();
+      toast.success(`Saved search "${name}".`);
+    } catch (err) {
+      toast.error(`Could not save: ${(err as Error).message}`);
+    }
+  };
+
+  const applySaved = (s: SavedSearch) => {
+    setFilters({ ...DEFAULT_FILTERS, ...s.filters } as FilterState);
+    setShowAdvanced(true);
+    toast.info(`Applied "${s.name}".`);
+  };
+
+  const removeSaved = async (s: SavedSearch) => {
+    const ok = await confirm({
+      title: `Delete saved search?`,
+      message: `Remove "${s.name}" from your saved searches.`,
+      tone: "danger",
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
+    deleteSavedSearch(s.id);
+    refreshSaved();
+  };
+
+  const activeFilterCount = useMemo(() => {
+    let n = 0;
+    if (filters.search) n++;
+    if (filters.filterYear !== "") n++;
+    if (filters.filterQuarter !== "") n++;
+    if (filters.filterType !== "") n++;
+    if (filters.dateFrom) n++;
+    if (filters.dateTo) n++;
+    if (filters.amountMin) n++;
+    if (filters.amountMax) n++;
+    if (filters.orgIds.length) n++;
+    if (filters.categoryIds.length) n++;
+    if (filters.statuses.length) n++;
+    if (filters.hasReceipt) n++;
+    return n;
+  }, [filters]);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -136,7 +285,7 @@ export default function Transactions() {
           <h1 className="text-2xl font-bold text-slate-800">Transactions</h1>
           <p className="text-sm text-slate-500">All recorded income and expenses.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button className="btn-secondary" onClick={() => setCsvOpen(true)}>
             Import CSV
           </button>
@@ -149,19 +298,24 @@ export default function Transactions() {
         </div>
       </div>
 
+      {/* Quick filter row */}
       <div className="card p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
         <div>
           <label className="label">Search</label>
           <input
             className="input"
-            placeholder="Description, payee, ref…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Description, payee, ref, notes…"
+            value={filters.search}
+            onChange={(e) => update("search", e.target.value)}
           />
         </div>
         <div>
           <label className="label">Year</label>
-          <select className="input" value={filterYear} onChange={(e) => setFilterYear(e.target.value ? Number(e.target.value) : "")}>
+          <select
+            className="input"
+            value={filters.filterYear}
+            onChange={(e) => update("filterYear", e.target.value ? Number(e.target.value) : "")}
+          >
             <option value="">All</option>
             {years.map((y) => (
               <option key={y} value={y}>
@@ -172,7 +326,13 @@ export default function Transactions() {
         </div>
         <div>
           <label className="label">Quarter</label>
-          <select className="input" value={filterQuarter} onChange={(e) => setFilterQuarter(e.target.value as "" | "1" | "2" | "3" | "4")}>
+          <select
+            className="input"
+            value={filters.filterQuarter}
+            onChange={(e) =>
+              update("filterQuarter", e.target.value as "" | "1" | "2" | "3" | "4")
+            }
+          >
             <option value="">All</option>
             <option value="1">Q1</option>
             <option value="2">Q2</option>
@@ -181,35 +341,229 @@ export default function Transactions() {
           </select>
         </div>
         <div>
-          <label className="label">Organization</label>
-          <select className="input" value={filterOrg} onChange={(e) => setFilterOrg(e.target.value ? Number(e.target.value) : "")}>
-            <option value="">All</option>
-            {orgs?.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
           <label className="label">Type</label>
-          <select className="input" value={filterType} onChange={(e) => setFilterType(e.target.value as "" | "expense" | "income")}>
+          <select
+            className="input"
+            value={filters.filterType}
+            onChange={(e) =>
+              update("filterType", e.target.value as "" | "expense" | "income")
+            }
+          >
             <option value="">All</option>
             <option value="expense">Expense</option>
             <option value="income">Income</option>
           </select>
         </div>
-        <div>
-          <label className="label">Status</label>
-          <select className="input" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-            <option value="">All</option>
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="paid">Paid</option>
-            <option value="reimbursed">Reimbursed</option>
-          </select>
+        <div className="sm:col-span-2 flex items-end gap-2">
+          <button
+            className="btn-secondary w-full"
+            onClick={() => setShowAdvanced((v) => !v)}
+            type="button"
+          >
+            {showAdvanced ? "Hide advanced filters" : "Show advanced filters"}
+            {activeFilterCount > 0 && (
+              <span className="ml-2 inline-flex items-center justify-center min-w-[20px] h-5 px-1 text-xs font-semibold rounded-full bg-brand-100 text-brand-800">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+          <button className="btn-secondary" onClick={clearAll} type="button" title="Clear all filters">
+            Clear
+          </button>
         </div>
       </div>
+
+      {/* Advanced filters */}
+      {showAdvanced && (
+        <div className="card p-4 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div>
+              <label className="label">Date from</label>
+              <input
+                type="date"
+                className="input"
+                value={filters.dateFrom}
+                onChange={(e) => update("dateFrom", e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="label">Date to</label>
+              <input
+                type="date"
+                className="input"
+                value={filters.dateTo}
+                onChange={(e) => update("dateTo", e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="label">Amount min</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                className="input"
+                placeholder="0.00"
+                value={filters.amountMin}
+                onChange={(e) => update("amountMin", e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="label">Amount max</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                className="input"
+                placeholder="0.00"
+                value={filters.amountMax}
+                onChange={(e) => update("amountMax", e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="label">Has receipt</label>
+              <select
+                className="input"
+                value={filters.hasReceipt}
+                onChange={(e) =>
+                  update("hasReceipt", e.target.value as "" | "yes" | "no")
+                }
+              >
+                <option value="">All</option>
+                <option value="yes">With receipt</option>
+                <option value="no">Without receipt</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div>
+              <div className="label">Organizations</div>
+              <div className="border border-slate-200 rounded p-2 max-h-44 overflow-auto space-y-1 bg-white">
+                {orgs?.length ? (
+                  orgs.map((o) => (
+                    <label
+                      key={o.id}
+                      className="flex items-center gap-2 text-sm cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={filters.orgIds.includes(o.id!)}
+                        onChange={() =>
+                          update("orgIds", toggleInList(filters.orgIds, o.id!))
+                        }
+                      />
+                      <span>{o.name}</span>
+                    </label>
+                  ))
+                ) : (
+                  <div className="text-xs text-slate-500">No organizations.</div>
+                )}
+              </div>
+            </div>
+            <div>
+              <div className="label">Categories</div>
+              <div className="border border-slate-200 rounded p-2 max-h-44 overflow-auto space-y-1 bg-white">
+                {cats?.length ? (
+                  cats.map((c) => (
+                    <label
+                      key={c.id}
+                      className="flex items-center gap-2 text-sm cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={filters.categoryIds.includes(c.id!)}
+                        onChange={() =>
+                          update(
+                            "categoryIds",
+                            toggleInList(filters.categoryIds, c.id!),
+                          )
+                        }
+                      />
+                      <span>{c.name}</span>
+                    </label>
+                  ))
+                ) : (
+                  <div className="text-xs text-slate-500">No categories.</div>
+                )}
+              </div>
+            </div>
+            <div>
+              <div className="label">Statuses</div>
+              <div className="border border-slate-200 rounded p-2 space-y-1 bg-white">
+                {STATUSES.map((s) => (
+                  <label
+                    key={s}
+                    className="flex items-center gap-2 text-sm cursor-pointer capitalize"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={filters.statuses.includes(s)}
+                      onChange={() =>
+                        update("statuses", toggleInList(filters.statuses, s))
+                      }
+                    />
+                    <span>{s}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Saved searches */}
+          <div className="border-t border-slate-200 pt-3">
+            <div className="flex flex-wrap items-end gap-2 mb-2">
+              <div className="flex-1 min-w-[200px]">
+                <label htmlFor="saved-name" className="label">
+                  Save current filters as
+                </label>
+                <input
+                  id="saved-name"
+                  className="input"
+                  placeholder="e.g. Pending reimbursements"
+                  value={savedName}
+                  onChange={(e) => setSavedName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveCurrentSearch();
+                  }}
+                />
+              </div>
+              <button className="btn-secondary" onClick={saveCurrentSearch}>
+                Save search
+              </button>
+            </div>
+            {saved.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {saved.map((s) => (
+                  <div
+                    key={s.id}
+                    className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-slate-50 pl-3 pr-1 py-0.5 text-xs"
+                  >
+                    <button
+                      className="hover:underline"
+                      title="Apply saved search"
+                      onClick={() => applySaved(s)}
+                    >
+                      {s.name}
+                    </button>
+                    <button
+                      className="ml-1 text-slate-500 hover:text-red-600 px-1"
+                      title="Delete saved search"
+                      onClick={() => removeSaved(s)}
+                      aria-label={`Delete saved search ${s.name}`}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-xs text-slate-500">
+                No saved searches yet. Set up filters above and click Save search.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <div className="card p-3">
@@ -218,11 +572,15 @@ export default function Transactions() {
         </div>
         <div className="card p-3">
           <div className="text-xs uppercase text-slate-500">Filtered Income</div>
-          <div className="text-lg font-bold text-emerald-700">{formatCurrency(totalIncome, currency)}</div>
+          <div className="text-lg font-bold text-emerald-700">
+            {formatCurrency(totalIncome, currency)}
+          </div>
         </div>
         <div className="card p-3">
           <div className="text-xs uppercase text-slate-500">Filtered Expenses</div>
-          <div className="text-lg font-bold text-red-600">{formatCurrency(totalExpenses, currency)}</div>
+          <div className="text-lg font-bold text-red-600">
+            {formatCurrency(totalExpenses, currency)}
+          </div>
         </div>
       </div>
 
@@ -239,13 +597,14 @@ export default function Transactions() {
               <th className="py-2 px-3">Description</th>
               <th className="py-2 px-3">Ref</th>
               <th className="py-2 px-3">Status</th>
+              <th className="py-2 px-3">Receipt</th>
               <th className="py-2 px-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={10} className="py-8 text-center text-slate-500">
+                <td colSpan={11} className="py-8 text-center text-slate-500">
                   No transactions match the filters.
                 </td>
               </tr>
@@ -287,12 +646,31 @@ export default function Transactions() {
                         {t.status}
                       </span>
                     </td>
+                    <td className="py-2 px-3">
+                      {t.receiptDataUrl ? (
+                        <button
+                          type="button"
+                          className="text-brand-700 hover:underline"
+                          onClick={() => setViewingReceipt(t.receiptDataUrl ?? null)}
+                        >
+                          View
+                        </button>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                    </td>
                     <td className="py-2 px-3 text-right whitespace-nowrap">
-                      <button className="text-brand-700 hover:underline" onClick={() => setEditing(t)}>
+                      <button
+                        className="text-brand-700 hover:underline"
+                        onClick={() => setEditing(t)}
+                      >
                         Edit
                       </button>
                       <span className="mx-2 text-slate-300">|</span>
-                      <button className="text-red-600 hover:underline" onClick={() => remove(t.id)}>
+                      <button
+                        className="text-red-600 hover:underline"
+                        onClick={() => remove(t.id)}
+                      >
                         Delete
                       </button>
                     </td>
@@ -357,6 +735,12 @@ export default function Transactions() {
         onImported={() => {
           /* live query refreshes automatically */
         }}
+      />
+
+      <ReceiptViewer
+        open={!!viewingReceipt}
+        dataUrl={viewingReceipt ?? undefined}
+        onClose={() => setViewingReceipt(null)}
       />
     </div>
   );

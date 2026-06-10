@@ -26,6 +26,7 @@ import { logAudit, STANDARD_ACTORS } from "../utils/audit";
 import { broadcastDataChanged } from "../utils/broadcast";
 import YearManagementCard from "../components/YearManagementCard";
 import CategoryLimitsCard from "../components/CategoryLimitsCard";
+import ThemeCard from "../components/ThemeCard";
 
 export default function Settings() {
   const wardName = useSetting<string>("wardName", "");
@@ -599,6 +600,8 @@ export default function Settings() {
       <YearManagementCard />
 
       <CategoryLimitsCard />
+
+      <ThemeCard />
 
       <div className="card p-4 space-y-4">
         <div className="flex items-center justify-between gap-2 flex-wrap">

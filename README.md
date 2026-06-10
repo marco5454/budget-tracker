@@ -20,6 +20,11 @@ An offline-first web app to help LDS ward bishopric and clerks track quarterly/a
 - **Audit Log** of every create/update/delete on transactions, allocations, organizations, categories, templates, category limits, year close/reopen, and key settings — filterable by entity/action/actor and exportable to CSV.
 - **Trash** with 30-day auto-purge for deleted transactions and allocations, plus an 8-second Undo on delete.
 - **Multi-tab safety** — when another tab edits data, this tab refreshes automatically and shows a banner.
+- **Dark mode** — auto / light / dark, with a header toggle and a Settings panel.
+- **Receipt viewer** — built-in image zoom + PDF embed, no leaving the app.
+- **Advanced search** with free-text + date range + amount range + multi-select org/category/status, plus **saved searches**.
+- **Keyboard shortcuts** for navigation, new transaction, lock, and help (press `?`).
+- **Onboarding checklist** on the Dashboard guides first-time setup.
 - **Settings** to manage organizations, categories, ward name, currency, active actor, year management, category limits, security, and backups.
 - **Backup & Restore** as JSON files (manual download/import; merge or replace) — includes the audit log, templates, and category limits.
 - **Income tracking** for quarterly allotments, inter-ward transfers, refunds.
@@ -209,6 +214,46 @@ Deleting a transaction or allocation moves it to **Trash** (a soft delete) inste
 ## Multi-Tab Safety
 
 If you open the app in more than one tab/window, edits made in one tab are pushed to the others via a BroadcastChannel. A small **"Updated from another tab"** banner appears for a few seconds; the lists already refresh automatically.
+
+## Dark Mode
+
+Three modes are available:
+
+- **Auto** — follows your operating system theme (default).
+- **Light** — always light.
+- **Dark** — always dark.
+
+Toggle from the small sun/moon button in the header, or pick a specific mode in **Settings → Appearance**. The choice is remembered per-device.
+
+## Advanced Search & Saved Searches (Transactions page)
+
+The Transactions page has a **Show advanced filters** section with:
+
+- Free-text search on description, payee, reference, and notes.
+- Date range (from / to) and amount range (min / max).
+- Multi-select organizations, categories, and statuses.
+- *Has receipt / no receipt* filter.
+
+Save the current filter set as a **named saved search** (chip below the advanced panel). Apply it with one click, or delete it with the × button. Saved searches are stored in your browser's local storage on this device.
+
+## Receipt Viewer
+
+When a transaction has an attached receipt, click **View** in the Receipt column on the Transactions page (or **View attached receipt** inside the form). Images can be zoomed (+ / − keys, Ctrl + scroll wheel, or the on-screen buttons) and PDFs are embedded inline. Use the **Download** or **Open** buttons to save or open the file in a new tab.
+
+## Keyboard Shortcuts
+
+Click the **?** button in the header (or press **Shift + /**) for the cheatsheet. Highlights:
+
+- `G` then `D / T / B / R / S / H` — Go to Dashboard / Transactions / Budget / Reports / Settings / Help.
+- `N` — Add a new transaction (on Dashboard or Transactions).
+- `L` — Lock the app (if a PIN is set).
+- `Esc` — Close dialogs.
+
+Shortcuts are ignored while you're typing in a form field.
+
+## Onboarding Checklist
+
+First-time users see a small checklist on the Dashboard with the four setup steps (ward name, active actor, auto-backup folder, first allocation). It auto-ticks as you complete each step and disappears when finished. **Hide checklist** dismisses it permanently for this device.
 
 ## Optional App Lock (PIN/Passphrase)
 

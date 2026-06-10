@@ -405,6 +405,73 @@ export default function Help() {
         </p>
       </Section>
 
+      <Section title="Dark Mode">
+        <p>
+          Three modes are available — <strong>Auto</strong> (follow OS),{" "}
+          <strong>Light</strong>, and <strong>Dark</strong>. Toggle from the
+          sun/moon button in the header, or pick a specific mode under{" "}
+          <strong>Settings → Appearance</strong>. Your choice is remembered on
+          this device.
+        </p>
+      </Section>
+
+      <Section title="Advanced Search & Saved Searches">
+        <p>
+          On the Transactions page, click <strong>Show advanced filters</strong>
+          {" "}
+          for date range, amount range, multi-select organizations / categories
+          / statuses, and a "has receipt" filter. Save the current filter set
+          as a named <strong>saved search</strong> and apply it later with one
+          click. Saved searches live on this device only.
+        </p>
+      </Section>
+
+      <Section title="Receipt Viewer">
+        <p>
+          When a transaction has an attached receipt, click <strong>View</strong>
+          {" "}
+          in the Receipt column. Images can be zoomed (+ / − keys, Ctrl + scroll
+          wheel, or the on-screen buttons) and PDFs are embedded inline. The
+          viewer also has Download and Open buttons for opening the file in a
+          new tab.
+        </p>
+      </Section>
+
+      <Section title="Keyboard Shortcuts">
+        <ul className="list-disc pl-6 space-y-1">
+          <li>
+            Press <kbd>?</kbd> (Shift + /) any time for the full cheatsheet.
+          </li>
+          <li>
+            <kbd>G</kbd> then <kbd>D</kbd> / <kbd>T</kbd> / <kbd>B</kbd> /{" "}
+            <kbd>R</kbd> / <kbd>S</kbd> / <kbd>H</kbd> — go to Dashboard /
+            Transactions / Budget / Reports / Settings / Help.
+          </li>
+          <li>
+            <kbd>N</kbd> — Add a new transaction (on Dashboard or Transactions).
+          </li>
+          <li>
+            <kbd>L</kbd> — Lock the app immediately (when a PIN is set).
+          </li>
+          <li>
+            <kbd>Esc</kbd> — Close the current dialog.
+          </li>
+        </ul>
+        <p className="mt-2">
+          Shortcuts are ignored while you are typing inside a form field.
+        </p>
+      </Section>
+
+      <Section title="Onboarding Checklist">
+        <p>
+          A short setup checklist appears on the Dashboard the first time you
+          open the app: ward name, active actor, auto-backup folder, and your
+          first allocation. It ticks itself off as you complete each step and
+          disappears when everything is done. You can dismiss it manually with
+          <strong> Hide checklist</strong>.
+        </p>
+      </Section>
+
       <Section title="Backup Reminders">
         <p>
           When you make changes and have not backed up in over 7 days (or

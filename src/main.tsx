@@ -9,9 +9,14 @@ import { ConfirmProvider } from "./components/Confirm";
 import ErrorBoundary from "./components/ErrorBoundary";
 import LockGate from "./components/LockGate";
 import { LockStateProvider } from "./hooks/useLockState";
+import { ThemeProvider } from "./hooks/useTheme";
+import { bootTheme } from "./utils/theme";
 import { maybeRunAutoBackup } from "./utils/autoBackup";
 import { pruneAuditLog } from "./utils/audit";
 import { autoPurgeOldTrash } from "./utils/trash";
+
+// Apply persisted theme synchronously before React mounts to avoid a flash.
+bootTheme();
 
 async function startupTasks() {
   await seedIfEmpty();
@@ -28,17 +33,19 @@ startupTasks().catch((err) => console.error("Startup task failed:", err));
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ErrorBoundary>
-      <ToastProvider>
-        <ConfirmProvider>
-          <LockStateProvider>
-            <LockGate>
-              <HashRouter>
-                <App />
-              </HashRouter>
-            </LockGate>
-          </LockStateProvider>
-        </ConfirmProvider>
-      </ToastProvider>
+      <ThemeProvider>
+        <ToastProvider>
+          <ConfirmProvider>
+            <LockStateProvider>
+              <LockGate>
+                <HashRouter>
+                  <App />
+                </HashRouter>
+              </LockGate>
+            </LockStateProvider>
+          </ConfirmProvider>
+        </ToastProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   </StrictMode>,
 );

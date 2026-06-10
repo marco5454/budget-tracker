@@ -13,33 +13,180 @@
     font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
       "Helvetica Neue", Arial, sans-serif;
   }
+  .dark body {
+    @apply bg-slate-950 text-slate-100;
+  }
+  /* Native form controls follow theme on supported browsers. */
+  .dark {
+    color-scheme: dark;
+  }
 }
 
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed dark:focus:ring-offset-slate-900;
   }
   .btn-primary {
-    @apply btn bg-brand-600 text-white hover:bg-brand-700 focus:ring-brand-500;
+    @apply btn bg-brand-600 text-white hover:bg-brand-700 focus:ring-brand-500 dark:bg-brand-500 dark:hover:bg-brand-400;
   }
   .btn-secondary {
-    @apply btn bg-white text-slate-800 border border-slate-300 hover:bg-slate-50 focus:ring-brand-500;
+    @apply btn bg-white text-slate-800 border border-slate-300 hover:bg-slate-50 focus:ring-brand-500 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600 dark:hover:bg-slate-700;
   }
   .btn-danger {
-    @apply btn bg-red-600 text-white hover:bg-red-700 focus:ring-red-500;
+    @apply btn bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 dark:bg-red-500 dark:hover:bg-red-400;
   }
   .input {
-    @apply block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500;
+    @apply block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400 dark:focus:border-brand-400 dark:focus:ring-brand-400;
   }
   .label {
-    @apply block text-sm font-medium text-slate-700 mb-1;
+    @apply block text-sm font-medium text-slate-700 mb-1 dark:text-slate-300;
   }
   .card {
-    @apply bg-white rounded-lg border border-slate-200 shadow-sm;
+    @apply bg-white rounded-lg border border-slate-200 shadow-sm dark:bg-slate-900 dark:border-slate-700;
   }
   .badge {
     @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
   }
+}
+
+/* Dark-mode polish for common ad-hoc utility classes used throughout the app.
+ * Component-class consumers (.card / .input / .btn-*) already get dark variants
+ * via @apply above; this block covers raw bg-white / text-slate-* / etc. so we
+ * don't need to sprinkle dark: utilities in every file. */
+.dark .bg-white {
+  background-color: rgb(15 23 42 / 1); /* slate-900 */
+}
+.dark .bg-slate-50 {
+  background-color: rgb(15 23 42 / 1); /* slate-900 */
+}
+.dark .bg-slate-100 {
+  background-color: rgb(30 41 59 / 1); /* slate-800 */
+}
+.dark .bg-slate-200 {
+  background-color: rgb(51 65 85 / 1); /* slate-700 */
+}
+.dark .text-slate-900 {
+  color: rgb(241 245 249 / 1); /* slate-100 */
+}
+.dark .text-slate-800 {
+  color: rgb(226 232 240 / 1); /* slate-200 */
+}
+.dark .text-slate-700 {
+  color: rgb(203 213 225 / 1); /* slate-300 */
+}
+.dark .text-slate-600 {
+  color: rgb(148 163 184 / 1); /* slate-400 */
+}
+.dark .text-slate-500 {
+  color: rgb(148 163 184 / 1); /* slate-400 */
+}
+.dark .border-slate-200 {
+  border-color: rgb(51 65 85 / 1); /* slate-700 */
+}
+.dark .border-slate-300 {
+  border-color: rgb(71 85 105 / 1); /* slate-600 */
+}
+.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgb(51 65 85 / 1);
+}
+/* Tinted status surfaces — soften background and lift the text for dark bg. */
+.dark .bg-amber-50 {
+  background-color: rgb(120 53 15 / 0.25);
+}
+.dark .bg-amber-100 {
+  background-color: rgb(146 64 14 / 0.4);
+}
+.dark .text-amber-700,
+.dark .text-amber-800,
+.dark .text-amber-900 {
+  color: rgb(252 211 77 / 1); /* amber-300 */
+}
+.dark .border-amber-200 {
+  border-color: rgb(180 83 9 / 0.6);
+}
+.dark .border-amber-300 {
+  border-color: rgb(180 83 9 / 0.8);
+}
+.dark .bg-red-50 {
+  background-color: rgb(127 29 29 / 0.25);
+}
+.dark .bg-red-100 {
+  background-color: rgb(153 27 27 / 0.4);
+}
+.dark .text-red-700,
+.dark .text-red-800 {
+  color: rgb(252 165 165 / 1); /* red-300 */
+}
+.dark .border-red-200 {
+  border-color: rgb(153 27 27 / 0.6);
+}
+.dark .bg-emerald-50 {
+  background-color: rgb(6 78 59 / 0.25);
+}
+.dark .bg-emerald-100 {
+  background-color: rgb(6 95 70 / 0.4);
+}
+.dark .text-emerald-700,
+.dark .text-emerald-800 {
+  color: rgb(110 231 183 / 1); /* emerald-300 */
+}
+.dark .border-emerald-200 {
+  border-color: rgb(6 95 70 / 0.6);
+}
+.dark .bg-sky-50 {
+  background-color: rgb(12 74 110 / 0.25);
+}
+.dark .bg-sky-100 {
+  background-color: rgb(7 89 133 / 0.4);
+}
+.dark .text-sky-700,
+.dark .text-sky-800 {
+  color: rgb(125 211 252 / 1); /* sky-300 */
+}
+.dark .border-sky-200 {
+  border-color: rgb(7 89 133 / 0.6);
+}
+/* Tables / hover states */
+.dark .hover\:bg-slate-50:hover {
+  background-color: rgb(30 41 59 / 1);
+}
+.dark .hover\:bg-slate-100:hover {
+  background-color: rgb(30 41 59 / 1);
+}
+/* Recharts cartesian grid + tick labels. */
+.dark .recharts-cartesian-grid line {
+  stroke: rgb(51 65 85 / 1);
+}
+.dark .recharts-text {
+  fill: rgb(203 213 225 / 1);
+}
+.dark .recharts-default-tooltip {
+  background-color: rgb(15 23 42 / 0.95) !important;
+  border-color: rgb(51 65 85 / 1) !important;
+  color: rgb(241 245 249 / 1) !important;
+}
+.dark .recharts-tooltip-label,
+.dark .recharts-tooltip-item-name,
+.dark .recharts-tooltip-item-value {
+  color: rgb(241 245 249 / 1) !important;
+}
+/* Make brand link/text colors readable on dark surfaces. */
+.dark .text-brand-700 {
+  color: rgb(124 197 251 / 1); /* brand-300 */
+}
+.dark .text-brand-800 {
+  color: rgb(186 224 253 / 1); /* brand-200 */
+}
+.dark .bg-brand-50 {
+  background-color: rgb(11 65 109 / 0.4); /* brand-900 with alpha */
+}
+/* Header navigation contrast: dark .bg-slate-50 becomes slate-900, which would
+ * sit invisible against brand-800. Keep the active-nav tab readable. */
+.dark nav.bg-brand-800 .bg-slate-50 {
+  background-color: rgb(255 255 255 / 0.1);
+}
+.dark nav.bg-brand-800 .text-brand-800 {
+  color: #fff;
 }
 
 /* Print styles — used for "Save as PDF" via the browser print dialog. */

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import {
@@ -29,6 +29,7 @@ import TransactionForm from "../components/TransactionForm";
 import AllotmentQuickAdd from "../components/AllotmentQuickAdd";
 import AttentionWidget from "../components/AttentionWidget";
 import PrintHeader from "../components/PrintHeader";
+import OnboardingChecklist from "../components/OnboardingChecklist";
 import { useSetting } from "../hooks/useSetting";
 import { useClosedYears } from "../hooks/useClosedYears";
 
@@ -56,6 +57,14 @@ export default function Dashboard() {
   const [showAdd, setShowAdd] = useState(false);
   const [addDirty, setAddDirty] = useState(false);
   const [showAllotment, setShowAllotment] = useState(false);
+
+  // "N" keyboard shortcut opens the Add Transaction modal.
+  useEffect(() => {
+    const onShortcut = () => setShowAdd(true);
+    window.addEventListener("wbt:shortcut-new-transaction", onShortcut);
+    return () =>
+      window.removeEventListener("wbt:shortcut-new-transaction", onShortcut);
+  }, []);
 
   const txns = useLiveQuery(
     () => db.transactions.filter((t) => !t.deletedAt).toArray(),
@@ -190,6 +199,9 @@ export default function Dashboard() {
         title="Budget Dashboard"
         subtitle={`${year} · ${quarter === 0 ? "Annual" : `Q${quarter}`}`}
       />
+      <div className="no-print">
+        <OnboardingChecklist />
+      </div>
       <div className="flex flex-wrap items-end justify-between gap-3 no-print">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>

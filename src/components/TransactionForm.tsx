@@ -25,6 +25,7 @@ import { yearFromDate, formatCurrency } from "../utils/format";
 import { useToast } from "./Toast";
 import { useConfirm } from "./Confirm";
 import { useSetting } from "../hooks/useSetting";
+import ReceiptViewer from "./ReceiptViewer";
 
 interface Props {
   initial?: Transaction;
@@ -73,6 +74,7 @@ export default function TransactionForm({
   const [receiptDataUrl, setReceiptDataUrl] = useState<string | undefined>(
     initial?.receiptDataUrl,
   );
+  const [showReceipt, setShowReceipt] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -311,7 +313,8 @@ export default function TransactionForm({
     ) : null;
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4" noValidate>
+    <>
+      <form onSubmit={onSubmit} className="space-y-4" noValidate>
       {!initial && templates && templates.length > 0 && (
         <div className="rounded border border-slate-200 bg-slate-50 px-3 py-2">
           <label htmlFor="tx-template" className="text-xs font-medium text-slate-600">
@@ -526,14 +529,13 @@ export default function TransactionForm({
         />
         {receiptDataUrl && (
           <div className="mt-2 flex items-center gap-2">
-            <a
-              href={receiptDataUrl}
-              target="_blank"
-              rel="noreferrer"
+            <button
+              type="button"
+              onClick={() => setShowReceipt(true)}
               className="text-brand-700 text-sm underline"
             >
               View attached receipt
-            </a>
+            </button>
             <button
               type="button"
               className="text-xs text-red-600 underline"
@@ -602,5 +604,11 @@ export default function TransactionForm({
         </div>
       </div>
     </form>
+    <ReceiptViewer
+      open={showReceipt}
+      dataUrl={receiptDataUrl}
+      onClose={() => setShowReceipt(false)}
+    />
+    </>
   );
 }
